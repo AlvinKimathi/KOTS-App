@@ -1,0 +1,206 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html.light {
+    color-scheme: light;
+  }
+
+  body {
+    font-family: 'Lexend Deca', system-ui, -apple-system, sans-serif;
+    background-color: #141513;
+    color: #FFFFFF;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+
+  select,
+  option {
+    background-color: #161616;
+    color: #FFFFFF;
+  }
+
+  html.light select,
+  html.light option {
+    background-color: #FFFFFF;
+    color: #141513;
+  }
+
+  html.light body {
+    background-color: #F3F5EE;
+    color: #141513;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #141513;
+  }
+
+  html.light ::-webkit-scrollbar-track {
+    background: #E8ECE0;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2D2D2D;
+    border-radius: 9999px;
+  }
+
+  html.light ::-webkit-scrollbar-thumb {
+    background: #B5BDA5;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #C8F558;
+  }
+}
+
+.safe-bottom-dock {
+  bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Exact ambient olive-lime top header glow from Homepage/ Default (24:2823) */
+.figma-screen-glow {
+  background-color: #141513;
+  background-image: 
+    radial-gradient(
+      ellipse 95% 28% at 45% 0%,
+      rgba(124, 154, 50, 0.34) 0%,
+      rgba(124, 154, 50, 0.12) 45%,
+      rgba(20, 21, 19, 0) 100%
+    );
+}
+
+html.light .figma-screen-glow {
+  background-color: #F3F5EE;
+  background-image: 
+    radial-gradient(
+      ellipse 95% 28% at 45% 0%,
+      rgba(124, 154, 50, 0.24) 0%,
+      rgba(200, 245, 88, 0.10) 45%,
+      rgba(243, 245, 238, 0) 100%
+    );
+}
+
+/* Scoreboard card surface with Figma contour wave pattern */
+.figma-wave-card {
+  background-color: #161616;
+  background-image: 
+    url('/figma/pattern_waves.png'),
+    radial-gradient(circle at 80% 35%, rgba(200, 245, 88, 0.09) 0%, transparent 55%);
+  background-size: cover;
+  background-position: center;
+}
+
+html.light .figma-wave-card {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(20, 21, 19, 0.09);
+  background-image: 
+    radial-gradient(circle at 80% 35%, rgba(124, 154, 50, 0.14) 0%, transparent 60%);
+}
+
+/* ==========================================================================
+   Light Mode Surface & Typography Overrides (activated when html.light is set)
+   ========================================================================== */
+html.light .bg-\[\#141513\] {
+  background-color: #F3F5EE !important;
+}
+
+html.light .bg-\[\#141513\]\/75 {
+  background-color: rgba(243, 245, 238, 0.85) !important;
+}
+
+html.light .bg-\[\#161616\]:not(.keep-dark-surface),
+html.light .bg-\[\#161616\]\/90:not(.keep-dark-surface),
+html.light .bg-\[\#161616\]\/85:not(.keep-dark-surface),
+html.light .bg-\[\#161616\]\/80:not(.keep-dark-surface),
+html.light .bg-\[\#161616\]\/70:not(.keep-dark-surface),
+html.light .bg-\[\#161616\]\/60:not(.keep-dark-surface) {
+  background-color: #FFFFFF !important;
+  border-color: rgba(20, 21, 19, 0.1) !important;
+  box-shadow: 0 6px 20px -6px rgba(20, 21, 19, 0.08);
+}
+
+html.light .hover\:bg-\[\#1B1B1B\]:hover:not(.keep-dark-surface),
+html.light .hover\:bg-\[\#1E1E1E\]:hover:not(.keep-dark-surface) {
+  background-color: #F8FAF5 !important;
+}
+
+html.light .bg-\[\#242224\],
+html.light .bg-\[\#242224\]\/95,
+html.light .bg-\[\#2B292B\] {
+  background-color: #E7EBE0 !important;
+}
+
+html.light .from-\[\#201F20\]\/90 {
+  --tw-gradient-from: #F0F3EA var(--tw-gradient-from-position) !important;
+  --tw-gradient-via: #E7EBE0 var(--tw-gradient-via-position) !important;
+  --tw-gradient-to: #F0F3EA var(--tw-gradient-to-position) !important;
+}
+
+html.light .text-white:not(.keep-white-text) {
+  color: #141513 !important;
+}
+
+html.light .keep-dark-surface .text-white,
+html.light .keep-white-scope .text-white {
+  color: #FFFFFF !important;
+}
+
+html.light .text-\[\#8E8E8E\],
+html.light .text-\[\#9E9E9E\],
+html.light .text-\[\#BDBDBD\] {
+  color: #535A4B !important;
+}
+
+html.light .text-\[\#C8F558\]:not(.keep-lime-text) {
+  color: #4A6610 !important;
+}
+
+html.light .bg-\[\#C8F558\]\/20,
+html.light .bg-\[\#C8F558\]\/15 {
+  background-color: rgba(124, 154, 50, 0.18) !important;
+}
+
+html.light .border-white\/10,
+html.light .border-white\/15,
+html.light .border-white\/20,
+html.light .border-white\/\[0\.04\],
+html.light .border-white\/\[0\.05\],
+html.light .border-white\/\[0\.06\],
+html.light .border-white\/\[0\.08\] {
+  border-color: rgba(20, 21, 19, 0.11) !important;
+}
+
+html.light .divide-white\/\[0\.05\] > :not([hidden]) ~ :not([hidden]),
+html.light .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]),
+html.light .divide-white\/\[0\.08\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(20, 21, 19, 0.09) !important;
+}
