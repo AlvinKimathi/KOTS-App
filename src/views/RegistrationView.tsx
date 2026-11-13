@@ -20,15 +20,81 @@ import { parseAdminPlayerList } from '../utils/adminRosterParser';
 import { AppNavTab, RegistrationStatus } from '../types/tournament';
 
 const BADGE_COLORS = [
-  '#C8F558',
-  '#1AACA6',
-  '#E5A93C',
-  '#D9383A',
-  '#6366F1',
-  '#F97316',
-  '#EC4899',
-  '#10B981',
+  '#C8F558', // Electric Lime
+  '#10B981', // Emerald Green
+  '#22C55E', // Pitch Green
+  '#1AACA6', // Teal
+  '#06B6D4', // Cyan
+  '#38BDF8', // Sky Blue
+  '#2563EB', // Royal Blue
+  '#1D4ED8', // Cobalt Blue
+  '#6366F1', // Indigo
+  '#8B5CF6', // Violet
+  '#A855F7', // Purple
+  '#EC4899', // Hot Pink
+  '#F43F5E', // Rose
+  '#D9383A', // Crimson Red
+  '#EF4444', // Scarlet
+  '#F97316', // Flame Orange
+  '#E5A93C', // Championship Gold
+  '#FACC15', // Sun Yellow
+  '#FFFFFF', // Classic White
+  '#94A3B8', // Metallic Silver
 ];
+
+/**
+ * Shared palette + custom hex color picker for 7-Aside teams and 1v1 badges.
+ */
+const CrestColorPicker: React.FC<{
+  value: string;
+  onChange: (color: string) => void;
+  compact?: boolean;
+}> = ({ value, onChange, compact = false }) => {
+  const sizeCls = compact ? 'w-5 h-5' : 'w-6 h-6';
+  const isPreset = BADGE_COLORS.some(
+    (c) => c.toLowerCase() === value.toLowerCase()
+  );
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {BADGE_COLORS.map((color) => {
+        const selected = value.toLowerCase() === color.toLowerCase();
+        return (
+          <button
+            key={color}
+            type="button"
+            title={`Select crest color ${color}`}
+            aria-label={`Select crest color ${color}`}
+            onClick={() => onChange(color)}
+            className={`${sizeCls} rounded-full border-2 transition-transform ${
+              selected
+                ? 'border-[#C8F558] ring-2 ring-white scale-110'
+                : 'border-black/25 opacity-80 hover:opacity-100 hover:scale-105'
+            }`}
+            style={{ backgroundColor: color }}
+          />
+        );
+      })}
+      <label
+        title="Pick custom crest color"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#141513] border border-white/15 hover:border-[#C8F558] text-[10px] text-white cursor-pointer transition-colors"
+      >
+        <span
+          className="w-3.5 h-3.5 rounded-full border border-white/30 shrink-0"
+          style={{ backgroundColor: !isPreset ? value : '#C8F558' }}
+        />
+        <span>Custom</span>
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          className="sr-only"
+          aria-label="Custom crest color"
+        />
+      </label>
+    </div>
+  );
+};
 
 export const RegistrationView: React.FC<{
   onOpenSearch: () => void;
@@ -348,21 +414,10 @@ export const RegistrationView: React.FC<{
                   <label className="block font-quicksand text-[11px] font-normal text-[#8E8E8E] mb-1.5">
                     Team Crest Color
                   </label>
-                  <div className="flex items-center gap-2">
-                    {BADGE_COLORS.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        onClick={() => setTeamColor(color)}
-                        className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                          teamColor === color
-                            ? 'border-white scale-110'
-                            : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
+                  <CrestColorPicker
+                    value={teamColor}
+                    onChange={setTeamColor}
+                  />
                 </div>
               </div>
 
@@ -606,21 +661,10 @@ export const RegistrationView: React.FC<{
                 <label className="block font-quicksand text-[11px] font-normal text-[#8E8E8E] mb-1.5">
                   Badge Color
                 </label>
-                <div className="flex items-center gap-2">
-                  {BADGE_COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      onClick={() => setP1v1Color(color)}
-                      className={`w-6 h-6 rounded-full border-2 transition-transform ${
-                        p1v1Color === color
-                          ? 'border-white scale-110'
-                          : 'border-transparent opacity-70 hover:opacity-100'
-                      }`}
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
-                </div>
+                <CrestColorPicker
+                  value={p1v1Color}
+                  onChange={setP1v1Color}
+                />
               </div>
 
               <button
@@ -859,6 +903,19 @@ export const RegistrationView: React.FC<{
                           </div>
                         )}
                       </div>
+
+                      {isAdmin && (
+                        <div className="flex flex-wrap items-center gap-2 font-quicksand text-[11px] font-normal text-[#8E8E8E]">
+                          <span>Crest Color:</span>
+                          <CrestColorPicker
+                            compact
+                            value={team.badgeColor}
+                            onChange={(color) =>
+                              updateTeam7Aside(team.id, { badgeColor: color })
+                            }
+                          />
+                        </div>
+                      )}
 
                       {isAdmin && isPasteOpen && (
                         <div className="rounded-xl bg-[#161616] border border-[#C8F558]/40 p-3 space-y-2">

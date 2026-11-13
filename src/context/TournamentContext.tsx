@@ -174,6 +174,7 @@ interface TournamentContextValue {
         Team7Aside,
         | 'name'
         | 'shortCode'
+        | 'badgeColor'
         | 'groupId'
         | 'captainName'
         | 'captainPhone'
@@ -1414,6 +1415,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         Team7Aside,
         | 'name'
         | 'shortCode'
+        | 'badgeColor'
         | 'groupId'
         | 'captainName'
         | 'captainPhone'
@@ -1429,6 +1431,15 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       teams7Aside: prev.teams7Aside.map((t) =>
         t.id === teamId ? { ...t, ...patch } : t
       ),
+      matches: patch.badgeColor
+        ? prev.matches.map((m) =>
+            m.homeId === teamId
+              ? { ...m, homeColor: patch.badgeColor! }
+              : m.awayId === teamId
+              ? { ...m, awayColor: patch.badgeColor! }
+              : m
+          )
+        : prev.matches,
     }));
   };
 
