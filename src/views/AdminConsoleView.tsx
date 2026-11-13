@@ -466,10 +466,11 @@ export const AdminConsoleView: React.FC<{
                       Run Automated League Fixtures
                     </h3>
                     <p className="font-quicksand text-[11px] font-normal text-[#8E8E8E] mt-0.5">
-                      Creates a single round-robin League schedule across all{' '}
-                      {teams7Aside.length} registered teams grouped by Matchday.
-                      Configure match duration and kickoff intervals below before
-                      running or edit individual fixtures anytime.
+                      Generates a balanced single round-robin League schedule
+                      across all currently confirmed teams, grouped by Matchday
+                      (team count is completely open — works for any number of
+                      teams). Configure match duration and kickoff intervals
+                      below before running or edit individual fixtures anytime.
                     </p>
                   </div>
                 </div>

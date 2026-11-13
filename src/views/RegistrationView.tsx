@@ -642,9 +642,10 @@ export const RegistrationView: React.FC<{
               Post-Registration Automated League Fixtures
             </div>
             <div className="font-quicksand text-[11px] font-normal text-[#8E8E8E]">
-              Creates the single round-robin League schedule across all{' '}
-              {teams7Aside.length} registered teams (you can adjust kickoff
-              times and match durations in Admin).
+              Generates a balanced single round-robin League schedule across
+              whichever teams are registered and confirmed on tournament day
+              (team count stays open — add or remove teams anytime, and adjust
+              kickoff times and match durations in Admin).
             </div>
           </div>
           <button
