@@ -186,10 +186,10 @@ export const SettingsView: React.FC<{
           <div className="hidden lg:flex items-center justify-between pt-3 border-t border-white/[0.06]">
             <div>
               <div className="text-xs font-bold text-white">
-                Desktop Split Live Match View
+                Desktop Split Live Fixture View
               </div>
               <div className="font-quicksand text-[11px] text-[#8E8E8E]">
-                Display Live Match Details side-by-side on wide screens
+                Display Live Fixture Details side-by-side on wide screens
               </div>
             </div>
             <button
@@ -319,10 +319,10 @@ export const SettingsView: React.FC<{
 
             <div className="space-y-2.5">
               <div className="text-xs font-bold text-white">
-                Match-Day Snapshot Backup (JSON)
+                Fixture-Day Snapshot Backup (JSON)
               </div>
               <div className="font-quicksand text-[11px] text-[#8E8E8E]">
-                Download a complete snapshot of teams, 1v1 players, and match
+                Download a complete snapshot of teams, 1v1 players, and fixture
                 scores or restore from a saved backup file.
               </div>
               <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -356,7 +356,7 @@ export const SettingsView: React.FC<{
             <div className="pt-3 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-bold text-white">
-                  Start Clean Tournament (Clear Demo Teams & Matches)
+                  Start Clean Tournament (Clear Demo Teams & Fixtures)
                 </div>
                 <div className="font-quicksand text-[11px] font-normal text-[#8E8E8E]">
                   Wipes sample teams, 1v1 players, and demo fixtures so you can
@@ -382,7 +382,7 @@ export const SettingsView: React.FC<{
                       setConfirmClearBlankStep(false);
                       setNotice({
                         type: 'ok',
-                        text: 'Cleared all demo teams, 1v1 players, and matches. Ready for official registrations.',
+                        text: 'Cleared all demo teams, 1v1 players, and fixtures. Ready for official registrations.',
                       });
                     }}
                     className="px-3 py-2 rounded-full bg-[#D9383A] text-white keep-white-text text-xs font-bold"

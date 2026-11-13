@@ -43,7 +43,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Runda Royals FC',
     shortCode: 'RND',
     badgeColor: '#E5A93C',
-    groupId: 'Group A',
+    groupId: 'League',
     captainName: 'Brian Ochieng',
     captainPhone: '0712345678',
     registrationStatus: 'CONFIRMED',
@@ -67,7 +67,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Oyster Bay United',
     shortCode: 'OYB',
     badgeColor: '#18C5C5',
-    groupId: 'Group A',
+    groupId: 'League',
     captainName: 'David Njoroge',
     captainPhone: '0722987654',
     registrationStatus: 'CONFIRMED',
@@ -91,7 +91,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Kiambu Road Kings',
     shortCode: 'KRK',
     badgeColor: '#D9383A',
-    groupId: 'Group A',
+    groupId: 'League',
     captainName: 'Antony Kariuki',
     captainPhone: '0733112233',
     registrationStatus: 'CONFIRMED',
@@ -115,7 +115,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Westlands Athletic',
     shortCode: 'WST',
     badgeColor: '#6366F1',
-    groupId: 'Group A',
+    groupId: 'League',
     captainName: 'Ryan Mutiso',
     captainPhone: '0742195556',
     registrationStatus: 'CONFIRMED',
@@ -139,7 +139,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Kilimani Street FC',
     shortCode: 'KLM',
     badgeColor: '#B4F000',
-    groupId: 'Group B',
+    groupId: 'League',
     captainName: 'Sean Masika',
     captainPhone: '0701445566',
     registrationStatus: 'CONFIRMED',
@@ -163,7 +163,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Ridgeways Ballers',
     shortCode: 'RDG',
     badgeColor: '#F97316',
-    groupId: 'Group B',
+    groupId: 'League',
     captainName: 'walken Kuria',
     captainPhone: '0799223344',
     registrationStatus: 'CONFIRMED',
@@ -187,7 +187,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Lavington Turf Club',
     shortCode: 'LTC',
     badgeColor: '#EC4899',
-    groupId: 'Group B',
+    groupId: 'League',
     captainName: 'Neville Ouma',
     captainPhone: '0710762030',
     registrationStatus: 'CONFIRMED',
@@ -211,7 +211,7 @@ export const INITIAL_TEAMS_7ASIDE: Team7Aside[] = [
     name: 'Kasarani Lions',
     shortCode: 'KSR',
     badgeColor: '#10B981',
-    groupId: 'Group B',
+    groupId: 'League',
     captainName: 'kibet Sang',
     captainPhone: '0725667788',
     registrationStatus: 'PENDING',
@@ -363,12 +363,13 @@ export const INITIAL_PLAYERS_1V1: Player1v1[] = [
   },
 ];
 
-const GROUP_STAGE_MATCHES: Match[] = [
+const LEAGUE_STAGE_MATCHES: Match[] = [
   {
     id: 'match-g1',
     category: '7aside',
-    stage: 'GROUP',
-    groupId: 'Group A',
+    stage: 'LEAGUE',
+    groupId: 'League',
+    matchday: 1,
     venue: 'BALLMANIA RUNDA',
     scheduledTime: '14 Nov • 11:30 AM',
     status: 'LIVE',
@@ -446,8 +447,8 @@ const GROUP_STAGE_MATCHES: Match[] = [
   {
     id: 'match-g2',
     category: '7aside',
-    stage: 'GROUP',
-    groupId: 'Group A',
+    stage: 'LEAGUE',
+    groupId: 'League',
     venue: 'BALLMANIA RUNDA',
     scheduledTime: '14 Nov • 11:00 AM',
     status: 'FT',
@@ -503,8 +504,8 @@ const GROUP_STAGE_MATCHES: Match[] = [
   {
     id: 'match-g3',
     category: '7aside',
-    stage: 'GROUP',
-    groupId: 'Group B',
+    stage: 'LEAGUE',
+    groupId: 'League',
     venue: 'BALLMANIA RUNDA',
     scheduledTime: '14 Nov • 11:00 AM',
     status: 'FT',
@@ -570,8 +571,8 @@ const GROUP_STAGE_MATCHES: Match[] = [
   {
     id: 'match-g4',
     category: '7aside',
-    stage: 'GROUP',
-    groupId: 'Group B',
+    stage: 'LEAGUE',
+    groupId: 'League',
     venue: 'BALLMANIA RUNDA',
     scheduledTime: '14 Nov • 12:00 PM',
     status: 'UPCOMING',
@@ -602,8 +603,8 @@ const GROUP_STAGE_MATCHES: Match[] = [
   {
     id: 'match-g5',
     category: '7aside',
-    stage: 'GROUP',
-    groupId: 'Group A',
+    stage: 'LEAGUE',
+    groupId: 'League',
     venue: 'BALLMANIA RUNDA',
     scheduledTime: '14 Nov • 12:30 PM',
     status: 'UPCOMING',
@@ -632,20 +633,6 @@ const GROUP_STAGE_MATCHES: Match[] = [
     events: [],
   },
 ];
-
-// Generate full R16 -> QF -> SF -> FINAL knockout bracket for 7-Aside
-const KNOCKOUT_7ASIDE_MATCHES = generateKnockoutBracket({
-  category: '7aside',
-  startStage: 'R16',
-  venue: 'BALLMANIA RUNDA',
-  durationMinutes: 20,
-  participants: INITIAL_TEAMS_7ASIDE.map((t) => ({
-    id: t.id,
-    name: t.name,
-    shortCode: t.shortCode,
-    color: t.badgeColor,
-  })),
-});
 
 // Generate R16 -> QF -> SF -> FINAL knockout bracket for 1v1
 const KNOCKOUT_1V1_MATCHES = generateKnockoutBracket({
@@ -725,7 +712,6 @@ if (KNOCKOUT_1V1_MATCHES.length > 0) {
 }
 
 export const INITIAL_MATCHES: Match[] = [
-  ...GROUP_STAGE_MATCHES,
-  ...KNOCKOUT_7ASIDE_MATCHES,
+  ...LEAGUE_STAGE_MATCHES,
   ...KNOCKOUT_1V1_MATCHES,
 ];

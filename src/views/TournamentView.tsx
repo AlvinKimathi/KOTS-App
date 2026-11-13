@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Award, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Award, ArrowRight } from 'lucide-react';
 import { useTournament } from '../context/TournamentContext';
 import {
   formatMatchClock,
@@ -7,15 +7,16 @@ import {
   IconlySettingsButton,
   SectionTabHeader,
   TeamCrestBadge,
+  UpcomingMatchCard,
 } from '../components/ui/FigmaWidgets';
 import {
-  calculateGroupStandings,
+  calculateLeagueStandings,
   calculatePlayerLeaderboards,
 } from '../utils/standingsCalculator';
 import { resolveMatchWinnerSide } from '../utils/knockoutEngine';
 import { AppNavTab, KnockoutStage } from '../types/tournament';
 
-export type StandingsSubTab = 'group' | 'knockout' | '1v1';
+export type StandingsSubTab = 'league' | 'stats' | '1v1';
 
 export const TournamentView: React.FC<{
   initialSubTab?: StandingsSubTab;
@@ -23,7 +24,7 @@ export const TournamentView: React.FC<{
   onOpenSearch: () => void;
   onNavigateTab: (tab: AppNavTab) => void;
 }> = ({
-  initialSubTab = 'group',
+  initialSubTab = 'league',
   onSelectMatch,
   onOpenSearch,
   onNavigateTab,
@@ -32,43 +33,35 @@ export const TournamentView: React.FC<{
 
   const [activeSubTab, setActiveSubTab] =
     useState<StandingsSubTab>(initialSubTab);
-  const [selectedGroup, setSelectedGroup] = useState<string>('ALL');
+  const [selectedMatchday, setSelectedMatchday] = useState<number | 'ALL'>('ALL');
 
   useEffect(() => {
     setActiveSubTab(initialSubTab);
   }, [initialSubTab]);
 
-  const assignedGroupLabels = Array.from(
+  const leagueStandings = calculateLeagueStandings(teams7Aside, matches);
+
+  const leagueFixtures = matches.filter(
+    (m) => m.category === '7aside' && (m.stage === 'LEAGUE' || m.stage === 'GROUP')
+  );
+
+  const availableMatchdays = Array.from(
     new Set(
-      teams7Aside
-        .map((t) => t.groupId)
-        .filter((g) => g && g.startsWith('Group '))
+      leagueFixtures
+        .map((m) => m.matchday)
+        .filter((md): md is number => typeof md === 'number' && md > 0)
     )
-  ).sort();
+  ).sort((a, b) => a - b);
 
-  const availableGroups =
-    assignedGroupLabels.length > 0
-      ? assignedGroupLabels
-      : ['Group A', 'Group B'];
-
-  const unassignedTeamsCount = teams7Aside.filter(
-    (t) => !t.groupId || !t.groupId.startsWith('Group ')
-  ).length;
-
-  const groupsToRender =
-    selectedGroup === 'ALL' ? availableGroups : [selectedGroup];
+  const filteredLeagueFixtures =
+    selectedMatchday === 'ALL'
+      ? leagueFixtures
+      : leagueFixtures.filter((m) => m.matchday === selectedMatchday);
 
   const stagesOrder: KnockoutStage[] = ['R16', 'QF', 'SF', 'FINAL'];
 
-  const knockout7AsideMatches = matches.filter(
-    (m) => m.category === '7aside' && m.stage !== 'GROUP'
-  );
-  const active7AsideStages = stagesOrder.filter((st) =>
-    knockout7AsideMatches.some((m) => m.stage === st)
-  );
-
   const knockout1v1Matches = matches.filter(
-    (m) => m.category === '1v1' && m.stage !== 'GROUP'
+    (m) => m.category === '1v1' && m.stage !== 'GROUP' && m.stage !== 'LEAGUE'
   );
   const active1v1Stages = stagesOrder.filter((st) =>
     knockout1v1Matches.some((m) => m.stage === st)
@@ -138,7 +131,7 @@ export const TournamentView: React.FC<{
             Standings
           </h1>
           <p className="font-quicksand text-xs text-[#9E9E9E] font-normal">
-            Group Stage • Knockout Bracket • 1v1 Showcase
+            League Table • Top Stats • 1v1 Arena
           </p>
         </div>
 
@@ -155,9 +148,9 @@ export const TournamentView: React.FC<{
       <div className="grid grid-cols-3 gap-2 bg-[#161616] p-1.5 rounded-full border border-white/[0.06]">
         {(
           [
-            { id: 'group', label: 'Group Stage' },
-            { id: 'knockout', label: 'Knockout' },
-            { id: '1v1', label: '1v1' },
+            { id: 'league', label: 'League Table' },
+            { id: 'stats', label: 'Top Stats' },
+            { id: '1v1', label: '1v1 Arena' },
           ] as const
         ).map((tab) => {
           const isActive = activeSubTab === tab.id;
@@ -178,233 +171,231 @@ export const TournamentView: React.FC<{
         })}
       </div>
 
-      {/* TAB 1: GROUP STAGE STANDINGS & TOP SCORERS */}
-      {activeSubTab === 'group' && (
+      {/* TAB 1: UNIFIED 7-ASIDE LEAGUE TABLE & FIXTURES BY MATCHDAY */}
+      {activeSubTab === 'league' && (
         <section className="space-y-5">
-          {unassignedTeamsCount > 0 && (
-            <div className="rounded-[14px] bg-[#161616] border border-[#C8F558]/30 px-3.5 py-2.5 text-xs font-normal text-[#9E9E9E] flex items-center justify-between">
-              <span>
-                {unassignedTeamsCount} newly registered{' '}
-                {unassignedTeamsCount === 1 ? 'team is' : 'teams are'} awaiting
-                the automated Group Stage draw.
+          <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] overflow-hidden shadow-card">
+            <div className="px-4 py-3 bg-[#242224] border-b border-white/[0.05] flex items-center justify-between">
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                7-Aside League Standings
+              </span>
+              <span className="font-quicksand text-[11px] text-[#C8F558] font-normal">
+                PTS • GD • GF • GA • Cards
               </span>
             </div>
-          )}
 
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            <button
-              type="button"
-              onClick={() => setSelectedGroup('ALL')}
-              className={`px-3.5 py-1.5 rounded-full text-xs border shrink-0 ${
-                selectedGroup === 'ALL'
-                  ? 'bg-[#C8F558] text-[#161616] border-[#C8F558] font-bold'
-                  : 'bg-[#161616] text-[#8E8E8E] border-white/10 hover:text-white font-normal'
-              }`}
-            >
-              All Groups
-            </button>
-            {availableGroups.map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setSelectedGroup(g)}
-                className={`px-3.5 py-1.5 rounded-full text-xs border shrink-0 ${
-                  selectedGroup === g
-                    ? 'bg-[#C8F558] text-[#161616] border-[#C8F558] font-bold'
-                    : 'bg-[#161616] text-[#8E8E8E] border-white/10 hover:text-white font-normal'
-                }`}
-              >
-                {g}
-              </button>
-            ))}
+            {leagueStandings.length === 0 ? (
+              <div className="p-6 text-center text-xs text-[#8E8E8E]">
+                No teams registered in the league yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/[0.06] font-quicksand text-[10px] font-bold uppercase text-[#8E8E8E]">
+                      <th className="py-2.5 pl-3.5 pr-1">#</th>
+                      <th className="py-2.5 px-2">Team</th>
+                      <th className="py-2.5 px-1.5 text-center" title="Played">
+                        P
+                      </th>
+                      <th className="py-2.5 px-1.5 text-center" title="Won">
+                        W
+                      </th>
+                      <th className="py-2.5 px-1.5 text-center" title="Drawn">
+                        D
+                      </th>
+                      <th className="py-2.5 px-1.5 text-center" title="Lost">
+                        L
+                      </th>
+                      <th
+                        className="py-2.5 px-1.5 text-center"
+                        title="Goals For"
+                      >
+                        GF
+                      </th>
+                      <th
+                        className="py-2.5 px-1.5 text-center"
+                        title="Goals Against"
+                      >
+                        GA
+                      </th>
+                      <th
+                        className="py-2.5 px-1.5 text-center"
+                        title="Goal Difference"
+                      >
+                        GD
+                      </th>
+                      <th
+                        className="py-2.5 px-1.5 text-center text-[#FACC15]"
+                        title="Yellow Cards"
+                      >
+                        YC
+                      </th>
+                      <th
+                        className="py-2.5 px-1.5 text-center text-[#EF4444]"
+                        title="Red Cards"
+                      >
+                        RC
+                      </th>
+                      <th
+                        className="py-2.5 pl-1.5 pr-3.5 text-right text-[#C8F558]"
+                        title="Points"
+                      >
+                        PTS
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.05] text-xs">
+                    {leagueStandings.map((row, index) => {
+                      const isLeaderZone = index < 3;
+                      return (
+                        <tr
+                          key={row.teamId}
+                          className="hover:bg-[#242224]/60 transition-colors"
+                        >
+                          <td className="py-3 pl-3.5 pr-1 font-bold">
+                            <span
+                              className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] ${
+                                index === 0
+                                  ? 'bg-[#C8F558] text-[#161616]'
+                                  : isLeaderZone
+                                  ? 'bg-[#C8F558]/25 text-[#C8F558]'
+                                  : 'bg-[#242224] text-[#8E8E8E]'
+                              }`}
+                            >
+                              {index + 1}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-2 min-w-[130px]">
+                              <TeamCrestBadge
+                                shortCode={row.shortCode}
+                                color={row.badgeColor}
+                                size="xs"
+                              />
+                              <span className="font-bold text-white truncate">
+                                {row.teamName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
+                            {row.played}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-white font-medium">
+                            {row.won}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
+                            {row.drawn}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
+                            {row.lost}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-white">
+                            {row.gf}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
+                            {row.ga}
+                          </td>
+                          <td className="py-3 px-1.5 text-center font-bold">
+                            <span
+                              className={
+                                row.gd > 0
+                                  ? 'text-[#C8F558]'
+                                  : row.gd < 0
+                                  ? 'text-red-400'
+                                  : 'text-[#9E9E9E]'
+                              }
+                            >
+                              {row.gd > 0 ? `+${row.gd}` : row.gd}
+                            </span>
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#FACC15] font-medium">
+                            {row.yellowCards}
+                          </td>
+                          <td className="py-3 px-1.5 text-center text-[#EF4444] font-medium">
+                            {row.redCards}
+                          </td>
+                          <td className="py-3 pl-1.5 pr-3.5 text-right font-bold text-[#C8F558] text-sm">
+                            {row.points}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {groupsToRender.map((groupName) => {
-            const rows = calculateGroupStandings(
-              teams7Aside,
-              matches,
-              groupName
-            );
+          {/* League Matchdays & Fixtures Breakdown */}
+          {leagueFixtures.length > 0 && (
+            <div className="space-y-3 pt-1">
+              <SectionTabHeader title="League Fixtures" />
 
-            return (
-              <div
-                key={groupName}
-                className="rounded-[16px] bg-[#161616] border border-white/[0.06] overflow-hidden shadow-card"
-              >
-                <div className="px-4 py-3 bg-[#242224] border-b border-white/[0.05] flex items-center justify-between">
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">
-                    {groupName} Standings
-                  </span>
-                  <span className="font-quicksand text-[11px] text-[#C8F558] font-normal">
-                    PTS • GD • GF • GA • Cards
-                  </span>
+              {availableMatchdays.length > 0 && (
+                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMatchday('ALL')}
+                    className={`px-3.5 py-1.5 rounded-full text-xs border shrink-0 ${
+                      selectedMatchday === 'ALL'
+                        ? 'bg-[#C8F558] text-[#161616] border-[#C8F558] font-bold'
+                        : 'bg-[#161616] text-[#8E8E8E] border-white/10 hover:text-white font-normal'
+                    }`}
+                  >
+                    All Matchdays ({leagueFixtures.length})
+                  </button>
+                  {availableMatchdays.map((md) => (
+                    <button
+                      key={md}
+                      type="button"
+                      onClick={() => setSelectedMatchday(md)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs border shrink-0 ${
+                        selectedMatchday === md
+                          ? 'bg-[#C8F558] text-[#161616] border-[#C8F558] font-bold'
+                          : 'bg-[#161616] text-[#8E8E8E] border-white/10 hover:text-white font-normal'
+                      }`}
+                    >
+                      Matchday {md}
+                    </button>
+                  ))}
                 </div>
+              )}
 
-                {rows.length === 0 ? (
-                  <div className="p-6 text-center text-xs text-[#8E8E8E]">
-                    No teams assigned to {groupName} yet.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/[0.06] font-quicksand text-[10px] font-bold uppercase text-[#8E8E8E]">
-                          <th className="py-2.5 pl-3.5 pr-1">#</th>
-                          <th className="py-2.5 px-2">Team</th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Played"
-                          >
-                            P
-                          </th>
-                          <th className="py-2.5 px-1.5 text-center" title="Won">
-                            W
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Drawn"
-                          >
-                            D
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Lost"
-                          >
-                            L
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Goals For"
-                          >
-                            GF
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Goals Against"
-                          >
-                            GA
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center"
-                            title="Goal Difference"
-                          >
-                            GD
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center text-[#FACC15]"
-                            title="Yellow Cards"
-                          >
-                            YC
-                          </th>
-                          <th
-                            className="py-2.5 px-1.5 text-center text-[#EF4444]"
-                            title="Red Cards"
-                          >
-                            RC
-                          </th>
-                          <th
-                            className="py-2.5 pl-1.5 pr-3.5 text-right text-[#C8F558]"
-                            title="Points"
-                          >
-                            PTS
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.05] text-xs">
-                        {rows.map((row, index) => {
-                          const isQualifying = index < 2;
-                          return (
-                            <tr
-                              key={row.teamId}
-                              className="hover:bg-[#242224]/60 transition-colors"
-                            >
-                              <td className="py-3 pl-3.5 pr-1 font-bold">
-                                <span
-                                  className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] ${
-                                    isQualifying
-                                      ? 'bg-[#C8F558] text-[#161616]'
-                                      : 'bg-[#242224] text-[#8E8E8E]'
-                                  }`}
-                                >
-                                  {index + 1}
-                                </span>
-                              </td>
-                              <td className="py-3 px-2">
-                                <div className="flex items-center gap-2 min-w-[130px]">
-                                  <TeamCrestBadge
-                                    shortCode={row.shortCode}
-                                    color={row.badgeColor}
-                                    size="xs"
-                                  />
-                                  <span className="font-bold text-white truncate">
-                                    {row.teamName}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
-                                {row.played}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-white font-medium">
-                                {row.won}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
-                                {row.drawn}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
-                                {row.lost}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-white">
-                                {row.gf}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#9E9E9E]">
-                                {row.ga}
-                              </td>
-                              <td className="py-3 px-1.5 text-center font-bold">
-                                <span
-                                  className={
-                                    row.gd > 0
-                                      ? 'text-[#C8F558]'
-                                      : row.gd < 0
-                                      ? 'text-red-400'
-                                      : 'text-[#9E9E9E]'
-                                  }
-                                >
-                                  {row.gd > 0 ? `+${row.gd}` : row.gd}
-                                </span>
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#FACC15] font-medium">
-                                {row.yellowCards}
-                              </td>
-                              <td className="py-3 px-1.5 text-center text-[#EF4444] font-medium">
-                                {row.redCards}
-                              </td>
-                              <td className="py-3 pl-1.5 pr-3.5 text-right font-bold text-[#C8F558] text-sm">
-                                {row.points}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+              <div className="space-y-2.5">
+                {filteredLeagueFixtures.map((fixture) => (
+                  <UpcomingMatchCard
+                    key={fixture.id}
+                    match={fixture}
+                    onSelect={onSelectMatch}
+                    showRightArrow
+                  />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
+        </section>
+      )}
 
-          {/* 7-Aside Top Scorers, Assists & Cards */}
-          <div className="space-y-3 pt-1">
-            <SectionTabHeader title="Leaders" />
-            <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] overflow-hidden shadow-card">
-              <div className="px-4 py-3 bg-[#242224] border-b border-white/[0.05] flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-[#C8F558]" />
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">
-                    7-Aside Goals, Assists & Cards
-                  </span>
-                </div>
+      {/* TAB 2: TOP SCORERS, ASSISTS & FAIR PLAY STATS */}
+      {activeSubTab === 'stats' && (
+        <section className="space-y-4">
+          <SectionTabHeader title="League Leaders" />
+          <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] overflow-hidden shadow-card">
+            <div className="px-4 py-3 bg-[#242224] border-b border-white/[0.05] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#C8F558]" />
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  7-Aside Goals, Assists & Cards
+                </span>
               </div>
+            </div>
 
+            {playerStats.length === 0 ? (
+              <div className="p-6 text-center text-xs text-[#8E8E8E]">
+                No player statistics recorded yet.
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -424,7 +415,7 @@ export const TournamentView: React.FC<{
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/[0.04] text-xs">
-                    {playerStats.slice(0, 10).map((p) => (
+                    {playerStats.slice(0, 15).map((p) => (
                       <tr
                         key={p.playerId}
                         className="hover:bg-[#242224]/60 transition-colors"
@@ -461,137 +452,8 @@ export const TournamentView: React.FC<{
                   </tbody>
                 </table>
               </div>
-            </div>
+            )}
           </div>
-        </section>
-      )}
-
-      {/* TAB 2: 7-ASIDE KNOCKOUT STANDINGS / PROGRESSION (R16 -> QF -> SF -> FINAL) */}
-      {activeSubTab === 'knockout' && (
-        <section className="space-y-6">
-          {active7AsideStages.map((stage) => {
-            const stageMatches = knockout7AsideMatches
-              .filter((m) => m.stage === stage)
-              .sort((a, b) => (a.bracketOrder || 0) - (b.bracketOrder || 0));
-
-            const stageTitle = {
-              GROUP: 'Group Stage',
-              R16: 'Round of 16 (R16)',
-              QF: 'Quarter-Finals (QF)',
-              SF: 'Semi-Finals (SF)',
-              FINAL: 'Grand Final • KSh 45,000 Prize',
-            }[stage];
-
-            return (
-              <div key={stage} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-md bg-[#C8F558] text-[#161616] text-[10px] font-bold uppercase">
-                      {stage}
-                    </span>
-                    <span className="text-xs font-bold text-white">
-                      {stageTitle}
-                    </span>
-                  </div>
-                  <span className="font-quicksand text-[11px] text-[#8E8E8E]">
-                    {stageMatches.length}{' '}
-                    {stageMatches.length === 1 ? 'Tie' : 'Ties'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3">
-                  {stageMatches.map((m) => {
-                    const winnerSide = resolveMatchWinnerSide(m);
-                    return (
-                      <div
-                        key={m.id}
-                        className="rounded-[14px] bg-[#161616] border border-white/[0.06] p-3.5 space-y-2.5 hover:border-white/15 transition-all shadow-card"
-                      >
-                        <div className="flex items-center justify-between text-[10px] text-[#8E8E8E]">
-                          <span className="font-bold text-[#C8F558]">
-                            {m.stage} #{m.bracketOrder}
-                          </span>
-                          <span className="font-bold text-white">
-                            {formatMatchClock(m)}
-                          </span>
-                        </div>
-
-                        {/* Home Slot */}
-                        <div
-                          className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
-                            winnerSide === 'HOME'
-                              ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                              : 'bg-[#242224]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <TeamCrestBadge
-                              shortCode={m.homeShort}
-                              color={m.homeColor}
-                              size="xs"
-                            />
-                            <span className="text-xs font-bold text-white truncate">
-                              {m.homeName}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {winnerSide === 'HOME' && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#C8F558]" />
-                            )}
-                            <span className="text-xs font-bold text-white">
-                              {m.homeScore}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Away Slot */}
-                        <div
-                          className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
-                            winnerSide === 'AWAY'
-                              ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                              : 'bg-[#242224]'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <TeamCrestBadge
-                              shortCode={m.awayShort}
-                              color={m.awayColor}
-                              size="xs"
-                            />
-                            <span className="text-xs font-bold text-white truncate">
-                              {m.awayName}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {winnerSide === 'AWAY' && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-[#C8F558]" />
-                            )}
-                            <span className="text-xs font-bold text-white">
-                              {m.awayScore}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="pt-1 flex items-center justify-between">
-                          <span className="font-quicksand text-[11px] font-semibold text-[#7C9A32]">
-                            {m.scheduledTime}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onSelectMatch(m.id)}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C8F558] hover:underline"
-                          >
-                            <span>Match Center</span>
-                            <ArrowRight className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
         </section>
       )}
 
@@ -723,6 +585,7 @@ export const TournamentView: React.FC<{
                 .sort((a, b) => (a.bracketOrder || 0) - (b.bracketOrder || 0));
 
               const stageTitle = {
+                LEAGUE: 'League Stage',
                 GROUP: 'Group Stage',
                 R16: 'Round of 16 (R16)',
                 QF: 'Quarter-Finals (QF)',
@@ -817,7 +680,7 @@ export const TournamentView: React.FC<{
                               onClick={() => onSelectMatch(m.id)}
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C8F558] hover:underline"
                             >
-                              <span>Match Center</span>
+                              <span>Fixture Center</span>
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>

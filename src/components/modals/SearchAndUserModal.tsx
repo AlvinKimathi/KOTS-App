@@ -172,13 +172,13 @@ export const SearchModal: React.FC<{
             </div>
           </div>
         ) : (
-          /* STATE 2: Search/ Results (51:6187) — LIVE MATCHES, UPCOMING MATCHES, TOP PLAYERS, TEAMS */
+          /* STATE 2: Search/ Results (51:6187) — LIVE FIXTURES, UPCOMING FIXTURES, TOP PLAYERS, TEAMS */
           <div className="space-y-4">
-            {/* LIVE MATCHES Card */}
+            {/* LIVE FIXTURES Card */}
             {matchedLive.length > 0 && (
               <div className="rounded-[16px] bg-[#161616] p-4 space-y-3 shadow-card">
                 <div className="font-quicksand text-xs font-medium tracking-wider uppercase text-[#8E8E8E]">
-                  LIVE MATCHES
+                  LIVE FIXTURES
                 </div>
                 <div className="space-y-3">
                   {matchedLive.map((m) => (
@@ -196,11 +196,11 @@ export const SearchModal: React.FC<{
               </div>
             )}
 
-            {/* UPCOMING MATCHES Card */}
+            {/* UPCOMING FIXTURES Card */}
             {matchedUpcoming.length > 0 && (
               <div className="rounded-[16px] bg-[#161616] p-4 space-y-2.5 shadow-card">
                 <div className="font-quicksand text-xs font-medium tracking-wider uppercase text-[#8E8E8E]">
-                  UPCOMING MATCHES
+                  UPCOMING FIXTURES
                 </div>
                 <div className="divide-y divide-white/[0.06]">
                   {matchedUpcoming.slice(0, 3).map((m) => (
@@ -326,8 +326,8 @@ export const SearchModal: React.FC<{
                             </div>
                             <div className="font-quicksand text-xs text-[#8E8E8E] truncate">
                               {nextFixture
-                                ? `Upcoming Match - ${nextFixture.scheduledTime}`
-                                : 'No Upcoming Match'}
+                                ? `Upcoming Fixture - ${nextFixture.scheduledTime}`
+                                : 'No Upcoming Fixture'}
                             </div>
                           </div>
                         </div>
@@ -345,7 +345,7 @@ export const SearchModal: React.FC<{
               matched1v1.length === 0 &&
               matchedTeams.length === 0 && (
                 <div className="rounded-[16px] bg-[#161616] p-8 text-center text-xs text-[#8E8E8E]">
-                  No matches, teams, or players found for &ldquo;{query}&rdquo;
+                  No fixtures, teams, or players found for &ldquo;{query}&rdquo;
                 </div>
               )}
           </div>

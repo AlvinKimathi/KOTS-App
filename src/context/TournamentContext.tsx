@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -44,8 +45,10 @@ import {
   propagateKnockoutProgression,
 } from '../utils/knockoutEngine';
 import {
+  generateLeagueFixturesForTeams,
   generateRandomGroupDrawAndFixtures,
   generateRoundRobinFixturesForTeams,
+  LeagueDrawOptions,
 } from '../utils/drawGenerator';
 import { calculateGroupStandings } from '../utils/standingsCalculator';
 
@@ -115,16 +118,29 @@ interface TournamentContextValue {
     homePenalties: number,
     awayPenalties: number
   ) => void;
+  updateMatchDetails: (
+    matchId: string,
+    patch: {
+      scheduledTime?: string;
+      durationMinutes?: number;
+      venue?: string;
+    }
+  ) => void;
   createCustomMatch: (params: {
     category: TournamentCategory;
-    stage: 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
+    stage: 'LEAGUE' | 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
     groupId?: string;
+    matchday?: number;
+    durationMinutes?: number;
     homeId: string;
     awayId: string;
     scheduledTime: string;
     venue: string;
   }) => void;
-  // Automated Group & Knockout Draws (Admin-only)
+  // Automated League & 1v1 Draws (Admin-only)
+  runAutomatedLeagueFixtures: (
+    options?: Omit<LeagueDrawOptions, 'teams'>
+  ) => { matchCount: number; matchdayCount: number };
   runAutomatedGroupDrawAndFixtures: (
     groupCount?: 'AUTO' | 2 | 3 | 4
   ) => { groupCount: number; matchCount: number };
@@ -214,7 +230,7 @@ function loadInitialTournamentData(): PersistedTournamentData {
           matches: normalizeLiveMatchClocks(parsed.matches),
           pastSearches: Array.isArray(parsed.pastSearches)
             ? parsed.pastSearches
-            : ['Runda Royals', 'Group A', '1v1', 'Oyster Bay'],
+            : ['Runda Royals', 'League', '1v1', 'Oyster Bay'],
         };
       }
     }
@@ -225,7 +241,7 @@ function loadInitialTournamentData(): PersistedTournamentData {
     teams7Aside: INITIAL_TEAMS_7ASIDE,
     players1v1: INITIAL_PLAYERS_1V1,
     matches: normalizeLiveMatchClocks(INITIAL_MATCHES),
-    pastSearches: ['Runda Royals', 'Group A', '1v1', 'Oyster Bay'],
+    pastSearches: ['Runda Royals', 'League', '1v1', 'Oyster Bay'],
   };
 }
 
@@ -293,6 +309,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     StoredUserAccount[]
   >(loadSpectatorAccounts);
   const [clockTick, setClockTick] = useState<number>(() => Date.now());
+  const lastLocalMutationAtRef = useRef<number>(0);
 
   // Apply html.dark / html.light class and sync mobile browser theme-color whenever theme changes
   useEffect(() => {
@@ -387,6 +404,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     updater: (prev: PersistedTournamentData) => PersistedTournamentData,
     syncCloud: boolean = true
   ) => {
+    lastLocalMutationAtRef.current = Date.now();
     setData((prev) => {
       const next = updater(prev);
       try {
@@ -420,6 +438,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const fetchLatestFromCloud = async () => {
       if (!supabase) return;
+      if (Date.now() - lastLocalMutationAtRef.current < 3500) {
+        return;
+      }
       try {
         const { data: row, error } = await supabase
           .from('tournament_state')
@@ -428,6 +449,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
           .maybeSingle();
 
         if (!isMounted) return;
+        if (Date.now() - lastLocalMutationAtRef.current < 3500) {
+          return;
+        }
 
         if (error) {
           setSyncStatus('LOCAL_ONLY');
@@ -782,7 +806,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       }));
       return {
         ok: true,
-        message: `Restored ${parsed.teams7Aside.length} teams, ${parsed.players1v1.length} 1v1 players, and ${parsed.matches.length} matches.`,
+        message: `Restored ${parsed.teams7Aside.length} teams, ${parsed.players1v1.length} 1v1 players, and ${parsed.matches.length} fixtures.`,
       };
     } catch {
       return {
@@ -985,10 +1009,45 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
+  const updateMatchDetails = (
+    matchId: string,
+    patch: {
+      scheduledTime?: string;
+      durationMinutes?: number;
+      venue?: string;
+    }
+  ) => {
+    if (session.role !== 'ADMIN') return;
+    commitData((prev) => ({
+      ...prev,
+      matches: prev.matches.map((m) =>
+        m.id === matchId
+          ? {
+              ...m,
+              scheduledTime:
+                patch.scheduledTime !== undefined
+                  ? patch.scheduledTime.trim() || m.scheduledTime
+                  : m.scheduledTime,
+              durationMinutes:
+                patch.durationMinutes !== undefined
+                  ? Math.max(1, Math.min(90, Number(patch.durationMinutes) || m.durationMinutes))
+                  : m.durationMinutes,
+              venue:
+                patch.venue !== undefined
+                  ? patch.venue.trim() || m.venue
+                  : m.venue,
+            }
+          : m
+      ),
+    }));
+  };
+
   const createCustomMatch = (params: {
     category: TournamentCategory;
-    stage: 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
+    stage: 'LEAGUE' | 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
     groupId?: string;
+    matchday?: number;
+    durationMinutes?: number;
     homeId: string;
     awayId: string;
     scheduledTime: string;
@@ -1010,13 +1069,14 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         id: `match-${Date.now()}`,
         category: params.category,
         stage: params.stage,
-        groupId: params.groupId || params.stage,
+        groupId: params.groupId || (params.stage === 'LEAGUE' ? 'League' : params.stage),
+        matchday: params.matchday,
         venue: params.venue || 'BALLMANIA RUNDA',
         scheduledTime: params.scheduledTime || '14 Nov • 14:00',
         status: 'UPCOMING',
         elapsedSeconds: 0,
         clockStartedAt: null,
-        durationMinutes: is7Aside ? 20 : 4,
+        durationMinutes: params.durationMinutes || (is7Aside ? 20 : 4),
         homeId: homeEntity.id,
         awayId: awayEntity.id,
         homeName: homeEntity.name,
@@ -1045,6 +1105,43 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         matches: [newMatch, ...prev.matches],
       };
     });
+  };
+
+  const runAutomatedLeagueFixtures = (
+    options: Omit<LeagueDrawOptions, 'teams'> = {}
+  ): { matchCount: number; matchdayCount: number } => {
+    if (session.role !== 'ADMIN') {
+      return { matchCount: 0, matchdayCount: 0 };
+    }
+    const { leagueMatches, matchdayCount } = generateLeagueFixturesForTeams({
+      teams: data.teams7Aside,
+      venue: options.venue || 'BALLMANIA RUNDA',
+      dateLabel: options.dateLabel || '14 Nov',
+      startTime: options.startTime || '09:00',
+      durationMinutes: options.durationMinutes || 20,
+      slotIntervalMinutes: options.slotIntervalMinutes || 25,
+      shuffleTeams: options.shuffleTeams ?? true,
+    });
+
+    commitData((prev) => {
+      const updatedTeams = prev.teams7Aside.map((t) => ({
+        ...t,
+        groupId: 'League',
+      }));
+      const non7AsideMatches = prev.matches.filter(
+        (m) => m.category !== '7aside'
+      );
+      return {
+        ...prev,
+        teams7Aside: updatedTeams,
+        matches: [...leagueMatches, ...non7AsideMatches],
+      };
+    });
+
+    return {
+      matchCount: leagueMatches.length,
+      matchdayCount,
+    };
   };
 
   const runAutomatedGroupDrawAndFixtures = (
@@ -1289,7 +1386,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       name: input.name.trim(),
       shortCode: cleanShort,
       badgeColor: input.badgeColor || '#C8F558',
-      groupId: input.groupId || 'Unassigned',
+      groupId: input.groupId || 'League',
       captainName: input.captainName.trim(),
       captainPhone: input.captainPhone.trim(),
       players,
@@ -1415,14 +1512,20 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const resetTournamentData = () => {
     if (session.role !== 'ADMIN') return;
+    lastLocalMutationAtRef.current = Date.now();
     localStorage.removeItem(STORAGE_KEY);
     const freshData: PersistedTournamentData = {
       teams7Aside: INITIAL_TEAMS_7ASIDE,
       players1v1: INITIAL_PLAYERS_1V1,
       matches: normalizeLiveMatchClocks(INITIAL_MATCHES),
-      pastSearches: ['Runda Royals', 'Group A', '1v1', 'Oyster Bay'],
+      pastSearches: ['Runda Royals', 'League', '1v1', 'Oyster Bay'],
     };
     setData(freshData);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(freshData));
+    } catch {
+      // ignore storage error
+    }
     if (supabase) {
       void pushStateToSupabase(freshData);
     }
@@ -1465,7 +1568,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       removeMatchEvent,
       updateMatchStat,
       setPenaltyScore,
+      updateMatchDetails,
       createCustomMatch,
+      runAutomatedLeagueFixtures,
       runAutomatedGroupDrawAndFixtures,
       assignTeamGroupAndSyncFixtures,
       regenerateKnockoutDraw,

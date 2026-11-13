@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { GitBranch, Swords, Trophy } from 'lucide-react';
+import { Swords, Trophy } from 'lucide-react';
 import { useTournament } from '../context/TournamentContext';
 import {
   EmptyMatchesCard,
@@ -14,7 +14,7 @@ import {
 } from '../components/ui/FigmaWidgets';
 import { AppNavTab } from '../types/tournament';
 
-type FilterPill = '7aside' | '1v1' | 'knockouts' | 'all';
+type FilterPill = '7aside' | '1v1' | 'all';
 
 const FEED_1_PHOTOS = [
   '/feed/feed-turf-circle.jpg',
@@ -54,7 +54,6 @@ export const HomeView: React.FC<{
   const filterMatches = matches.filter((m) => {
     if (activeFilter === '7aside') return m.category === '7aside';
     if (activeFilter === '1v1') return m.category === '1v1';
-    if (activeFilter === 'knockouts') return m.stage !== 'GROUP';
     return true;
   });
 
@@ -80,7 +79,7 @@ export const HomeView: React.FC<{
     {
       id: '7aside',
       line1: 'King of the Streets',
-      line2: '7-Aside Cup',
+      line2: '7-Aside League',
       icon: <KotsCrownEmblem size={34} dark={activeFilter === '7aside'} />,
     },
     {
@@ -90,15 +89,9 @@ export const HomeView: React.FC<{
       icon: <Swords className="w-6 h-6" />,
     },
     {
-      id: 'knockouts',
-      line1: 'R16 to Final',
-      line2: 'Knockouts',
-      icon: <GitBranch className="w-6 h-6" />,
-    },
-    {
       id: 'all',
       line1: 'All Categories',
-      line2: 'All Matches',
+      line2: 'All Fixtures',
       icon: <Trophy className="w-6 h-6" />,
     },
   ];
@@ -137,9 +130,9 @@ export const HomeView: React.FC<{
         </div>
       </header>
 
-      {/* Matches Section Header (Header 57:7911) */}
+      {/* Fixtures Section Header (Header 57:7911) */}
       <section className="space-y-4">
-        <SectionTabHeader title="Matches" />
+        <SectionTabHeader title="Fixtures" />
 
         {/* Competition Selector Bar (Tabs/ Active 61:7950 + Tabs/ Incactive 62:7970) */}
         <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-0.5">
@@ -176,23 +169,23 @@ export const HomeView: React.FC<{
           })}
         </div>
 
-        {/* LIVE MATCHES Sub-Section */}
+        {/* LIVE FIXTURES Sub-Section */}
         <div className="space-y-3 pt-1">
           <div className="flex items-center justify-between">
             <span className="font-quicksand text-xs font-normal tracking-wider uppercase text-[#BDBDBD]">
-              LIVE MATCHES
+              LIVE FIXTURES
             </span>
           </div>
 
           {liveMatches.length === 0 ? (
-            <EmptyMatchesCard label="No Live Matches" />
+            <EmptyMatchesCard label="No Live Fixtures" />
           ) : liveMatches.length === 1 ? (
             <LiveScoreHeroCard
               match={liveMatches[0]}
               onSelect={onSelectMatch}
             />
           ) : (
-            /* When multiple matches are live (e.g. All Matches filter), show the 2-column Cards/ Small layout from Homepage/ English PL (24:2956) */
+            /* When multiple fixtures are live (e.g. All Fixtures filter), show the 2-column Cards/ Small layout from Homepage/ English PL (24:2956) */
             <div className="grid grid-cols-2 gap-3">
               {liveMatches.map((match) => (
                 <LiveScoreSmallCard
@@ -205,11 +198,11 @@ export const HomeView: React.FC<{
           )}
         </div>
 
-        {/* UPCOMING MATCHES Sub-Section */}
+        {/* UPCOMING FIXTURES Sub-Section */}
         <div className="space-y-3 pt-2">
           <div className="flex items-center justify-between">
             <span className="font-quicksand text-xs font-normal tracking-wider uppercase text-[#BDBDBD]">
-              UPCOMING MATCHES
+              UPCOMING FIXTURES
             </span>
             <button
               type="button"
@@ -221,7 +214,7 @@ export const HomeView: React.FC<{
           </div>
 
           {displayedUpcoming.length === 0 ? (
-            <EmptyMatchesCard label="No Upcoming Matches" />
+            <EmptyMatchesCard label="No Upcoming Fixtures" />
           ) : (
             <div className="space-y-3">
               {displayedUpcoming.map((match) => (
@@ -250,7 +243,7 @@ export const HomeView: React.FC<{
               onNavigateTab(isAdmin ? 'register' : 'teams');
             }
           }}
-          className="keep-white-scope relative h-[228px] rounded-[14px] overflow-hidden bg-[#161616] p-4 flex flex-col justify-between cursor-pointer group shadow-card"
+          className="keep-white-scope relative h-[228px] rounded-[14px] overflow-hidden bg-[#161616] p-4 flex flex-col justify-end cursor-pointer group shadow-card"
         >
           {FEED_1_PHOTOS.map((src, idx) => (
             <img
@@ -263,24 +256,6 @@ export const HomeView: React.FC<{
             />
           ))}
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
-
-          <div className="relative z-10 flex items-center justify-between">
-            <span className="inline-block px-3.5 py-1 rounded-full bg-[#C8F558] text-[#161616] text-[11px] font-bold">
-              7-Aside Cup
-            </span>
-            <div className="flex items-center gap-1.5 bg-black/45 px-2 py-1 rounded-full">
-              {FEED_1_PHOTOS.map((src, idx) => (
-                <span
-                  key={src}
-                  className={`h-1.5 rounded-full transition-all ${
-                    idx === feed1PhotoIdx
-                      ? 'w-4 bg-[#C8F558]'
-                      : 'w-1.5 bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
 
           <div className="relative z-10 space-y-1">
             <h3 className="keep-white-text text-sm font-bold text-white">
@@ -301,7 +276,7 @@ export const HomeView: React.FC<{
           onKeyDown={(e) => {
             if (e.key === 'Enter') onNavigateTab('1v1');
           }}
-          className="keep-white-scope relative h-[228px] rounded-[14px] overflow-hidden bg-[#161616] p-4 flex flex-col justify-between cursor-pointer group shadow-card"
+          className="keep-white-scope relative h-[228px] rounded-[14px] overflow-hidden bg-[#161616] p-4 flex flex-col justify-end cursor-pointer group shadow-card"
         >
           {FEED_2_PHOTOS.map((src, idx) => (
             <img
@@ -314,24 +289,6 @@ export const HomeView: React.FC<{
             />
           ))}
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/10" />
-
-          <div className="relative z-10 flex items-center justify-between">
-            <span className="inline-block px-3.5 py-1 rounded-full bg-[#C8F558] text-[#161616] text-[11px] font-bold">
-              1v1 & R16 Knockouts
-            </span>
-            <div className="flex items-center gap-1.5 bg-black/45 px-2 py-1 rounded-full">
-              {FEED_2_PHOTOS.map((src, idx) => (
-                <span
-                  key={src}
-                  className={`h-1.5 rounded-full transition-all ${
-                    idx === feed2PhotoIdx
-                      ? 'w-4 bg-[#C8F558]'
-                      : 'w-1.5 bg-white/50'
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
 
           <div className="relative z-10 space-y-1">
             <h3 className="keep-white-text text-sm font-bold text-white">

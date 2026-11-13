@@ -1,28 +1,23 @@
 import { Match, StandingRow, Team7Aside } from '../types/tournament';
 
 /**
- * Calculates live and completed group standings for 7-Aside teams,
+ * Calculates live and completed standings for 7-Aside teams,
  * including Points (PTS), Goal Difference (GD), Goals For (GF), Goals Against (GA),
  * Yellow Cards (YC), Red Cards (RC), and Head-to-Head / Discipline tie-breakers.
  */
-export function calculateGroupStandings(
+export function calculateLeagueStandings(
   teams: Team7Aside[],
-  matches: Match[],
-  groupId?: string
+  matches: Match[]
 ): StandingRow[] {
-  const filteredTeams = groupId
-    ? teams.filter((t) => t.groupId === groupId)
-    : teams;
-
   const rowsMap = new Map<string, StandingRow>();
 
-  for (const team of filteredTeams) {
+  for (const team of teams) {
     rowsMap.set(team.id, {
       teamId: team.id,
       teamName: team.name,
       shortCode: team.shortCode,
       badgeColor: team.badgeColor,
-      groupId: team.groupId,
+      groupId: team.groupId || 'League',
       played: 0,
       won: 0,
       drawn: 0,
@@ -38,13 +33,12 @@ export function calculateGroupStandings(
     });
   }
 
-  // Filter relevant group stage matches that have started (LIVE, HT, or FT)
+  // Filter relevant 7-Aside league matches that have started (LIVE, HT, or FT)
   const relevantMatches = matches.filter(
     (m) =>
       m.category === '7aside' &&
-      m.stage === 'GROUP' &&
-      (m.status === 'LIVE' || m.status === 'HT' || m.status === 'FT') &&
-      (!groupId || m.groupId === groupId)
+      (m.stage === 'LEAGUE' || m.stage === 'GROUP') &&
+      (m.status === 'LIVE' || m.status === 'HT' || m.status === 'FT')
   );
 
   for (const match of relevantMatches) {
@@ -103,13 +97,6 @@ export function calculateGroupStandings(
     form: r.form.slice(-5),
   }));
 
-  // Tie-breaker sorting:
-  // 1. Points (descending)
-  // 2. Goal Difference (descending)
-  // 3. Goals For (descending)
-  // 4. Head-to-Head points between the two teams
-  // 5. Discipline Score (ascending: fewer cards wins)
-  // 6. Alphabetical Team Name
   rows.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.gd !== a.gd) return b.gd - a.gd;
@@ -126,6 +113,25 @@ export function calculateGroupStandings(
   });
 
   return rows;
+}
+
+/**
+ * Legacy helper retained for group-filtered lookups if needed.
+ */
+export function calculateGroupStandings(
+  teams: Team7Aside[],
+  matches: Match[],
+  groupId?: string
+): StandingRow[] {
+  const filteredTeams = groupId
+    ? teams.filter((t) => t.groupId === groupId)
+    : teams;
+
+  const filteredMatches = groupId
+    ? matches.filter((m) => m.groupId === groupId)
+    : matches;
+
+  return calculateLeagueStandings(filteredTeams, filteredMatches);
 }
 
 function compareHeadToHead(

@@ -48,6 +48,7 @@ export const MatchDetailView: React.FC<{
     removeMatchEvent,
     updateMatchStat,
     setPenaltyScore,
+    updateMatchDetails,
   } = useTournament();
 
   const [activeTab, setActiveTab] = useState<DetailTab>('statistics');
@@ -55,6 +56,10 @@ export const MatchDetailView: React.FC<{
     () => session.role === 'ADMIN'
   );
   const [lastLoggedBanner, setLastLoggedBanner] = useState<string | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [editScheduledTime, setEditScheduledTime] = useState('');
+  const [editDurationMinutes, setEditDurationMinutes] = useState<number>(20);
+  const [editVenue, setEditVenue] = useState('');
 
   // Event logger state
   const [eventSide, setEventSide] = useState<'HOME' | 'AWAY'>('HOME');
@@ -145,7 +150,9 @@ export const MatchDetailView: React.FC<{
   ];
 
   const isKnockoutDraw =
-    match.stage !== 'GROUP' && match.homeScore === match.awayScore;
+    match.stage !== 'GROUP' &&
+    match.stage !== 'LEAGUE' &&
+    match.homeScore === match.awayScore;
 
   return (
     <div className="space-y-6 pb-28">
@@ -155,14 +162,14 @@ export const MatchDetailView: React.FC<{
           <IconlyBackCircleButton onClick={onBack} />
           <div>
             <h1 className="text-[28px] font-bold text-white leading-none">
-              Match
+              Fixture
             </h1>
             <p className="font-quicksand text-xs text-[#9E9E9E] font-medium mt-1">
               {match.status === 'LIVE' || match.status === 'HT'
-                ? 'Live Matches'
+                ? 'Live Fixture'
                 : match.status === 'FT'
                 ? 'Full Time'
-                : 'Upcoming Match'}
+                : 'Upcoming Fixture'}
             </p>
           </div>
         </div>
@@ -190,18 +197,18 @@ export const MatchDetailView: React.FC<{
         </div>
       </header>
 
-      {/* Main Match Scoreboard Card matching Match/ Detail/ Default (33:4866) */}
+      {/* Main Fixture Scoreboard Card matching Match/ Detail/ Default (33:4866) */}
       <section className="relative rounded-[20px] figma-wave-card p-5 overflow-hidden shadow-card">
         <TopographicWavesSvg className="absolute inset-0 w-full h-full opacity-95" />
 
-        {/* Match Title & Competition Subtitle */}
+        {/* Fixture Title & Competition Subtitle */}
         <div className="relative z-10 text-center space-y-0.5 mb-5">
           <h2 className="text-xs font-bold text-white tracking-tight">
             {match.homeName} VS {match.awayName}
           </h2>
           <p className="font-quicksand text-xs font-semibold text-[#7C9A32]">
             King of the Streets{' '}
-            {match.category === '7aside' ? '7-Aside Cup' : '1v1 Showcase'}
+            {match.category === '7aside' ? '7-Aside League' : '1v1 Showcase'}
           </p>
         </div>
 
@@ -261,7 +268,13 @@ export const MatchDetailView: React.FC<{
             <span>{match.venue}</span>
           </div>
           <span className="text-white font-medium">
-            {match.stage === 'GROUP' ? match.groupId : match.stage}
+            {match.stage === 'GROUP'
+              ? match.groupId
+              : match.stage === 'LEAGUE'
+              ? match.matchday
+                ? `Matchday ${match.matchday}`
+                : 'League'
+              : match.stage}
           </span>
         </div>
       </section>
@@ -275,7 +288,7 @@ export const MatchDetailView: React.FC<{
                 Live Referee & Stat Console
               </div>
               <div className="font-quicksand text-[11px] text-[#8E8E8E]">
-                Updates standings, GD, GF, GA, cards, and R16 knockouts in real time
+                Updates standings, GD, GF, GA, and cards in real time
               </div>
             </div>
 
@@ -314,7 +327,99 @@ export const MatchDetailView: React.FC<{
             </div>
           </div>
 
-          {/* Match Clock Calibration Bar */}
+          {/* Fixture Kickoff Time & Duration Editor */}
+          <div className="rounded-xl bg-[#141513] border border-white/[0.06] px-3 py-2.5 space-y-2 text-[11px]">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-[#9E9E9E] font-quicksand">
+                Schedule:{' '}
+                <span className="text-white font-semibold">
+                  {match.scheduledTime}
+                </span>{' '}
+                • Duration:{' '}
+                <span className="text-[#C8F558] font-bold">
+                  {match.durationMinutes} min
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!editingSchedule) {
+                    setEditScheduledTime(match.scheduledTime);
+                    setEditDurationMinutes(match.durationMinutes);
+                    setEditVenue(match.venue);
+                  }
+                  setEditingSchedule((prev) => !prev);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-[#242224] text-[#C8F558] text-[10px] font-bold hover:bg-white/10"
+              >
+                {editingSchedule ? 'Cancel' : 'Edit Time / Duration'}
+              </button>
+            </div>
+
+            {editingSchedule && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-white/[0.06]">
+                <div>
+                  <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                    Kickoff Time
+                  </label>
+                  <input
+                    type="text"
+                    value={editScheduledTime}
+                    onChange={(e) => setEditScheduledTime(e.target.value)}
+                    placeholder="14 Nov • 09:00"
+                    className="w-full rounded-lg bg-[#161616] border border-white/10 px-2.5 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                    Duration (Minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={90}
+                    value={editDurationMinutes}
+                    onChange={(e) =>
+                      setEditDurationMinutes(Number(e.target.value))
+                    }
+                    className="w-full rounded-lg bg-[#161616] border border-white/10 px-2.5 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                    Venue
+                  </label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={editVenue}
+                      onChange={(e) => setEditVenue(e.target.value)}
+                      className="w-full rounded-lg bg-[#161616] border border-white/10 px-2.5 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        updateMatchDetails(match.id, {
+                          scheduledTime: editScheduledTime,
+                          durationMinutes: editDurationMinutes,
+                          venue: editVenue,
+                        });
+                        setEditingSchedule(false);
+                        setLastLoggedBanner(
+                          `Updated fixture schedule (${editScheduledTime}, ${editDurationMinutes} min)`
+                        );
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-[#C8F558] text-[#161616] text-xs font-bold shrink-0"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Fixture Clock Calibration Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#141513] border border-white/[0.06] px-3 py-2 text-[11px]">
             <div className="flex items-center gap-1.5 text-[#9E9E9E] font-quicksand font-semibold">
               <Clock className="w-3.5 h-3.5 text-[#C8F558]" />
@@ -798,7 +903,7 @@ export const MatchDetailView: React.FC<{
           <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] p-4">
             {match.events.length === 0 ? (
               <div className="py-8 text-center text-xs text-[#8E8E8E]">
-                No match events recorded yet
+                No fixture events recorded yet
               </div>
             ) : (
               <div className="space-y-2.5">

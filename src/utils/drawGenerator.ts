@@ -24,16 +24,50 @@ export function getRecommendedGroupCount(teamCount: number): 2 | 3 | 4 {
 }
 
 /**
- * Formats a scheduled kickoff timestamp starting at 09:00 on 14 Nov and advancing by 25 minutes per slot.
+ * Parses HH:MM (24h) into minutes since midnight; defaults to 09:00 (540).
  */
-function formatGroupKickoffTime(slotIndex: number): string {
-  const startMinutes = 9 * 60 + slotIndex * 25;
-  const hours24 = Math.floor(startMinutes / 60) % 24;
-  const mins = startMinutes % 60;
-  return `14 Nov • ${String(hours24).padStart(2, '0')}:${String(mins).padStart(
+function parseStartTimeMinutes(startTime: string = '09:00'): number {
+  const parts = startTime.trim().split(':');
+  const h = Number(parts[0]);
+  const m = Number(parts[1] ?? 0);
+  if (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h < 24 && m >= 0 && m < 60) {
+    return h * 60 + m;
+  }
+  return 9 * 60;
+}
+
+/**
+ * Formats a scheduled kickoff timestamp advancing by slotIntervalMinutes per fixture slot.
+ */
+function formatScheduledKickoffTime(
+  slotIndex: number,
+  options: {
+    dateLabel?: string;
+    startTime?: string;
+    slotIntervalMinutes?: number;
+  } = {}
+): string {
+  const dateLabel = (options.dateLabel || '14 Nov').trim();
+  const baseMinutes = parseStartTimeMinutes(options.startTime || '09:00');
+  const interval = Math.max(5, Number(options.slotIntervalMinutes) || 25);
+  const totalMinutes = baseMinutes + slotIndex * interval;
+  const hours24 = Math.floor(totalMinutes / 60) % 24;
+  const mins = totalMinutes % 60;
+  return `${dateLabel} • ${String(hours24).padStart(2, '0')}:${String(mins).padStart(
     2,
     '0'
   )}`;
+}
+
+/**
+ * Formats a scheduled kickoff timestamp starting at 09:00 on 14 Nov and advancing by 25 minutes per slot.
+ */
+function formatGroupKickoffTime(slotIndex: number): string {
+  return formatScheduledKickoffTime(slotIndex, {
+    dateLabel: '14 Nov',
+    startTime: '09:00',
+    slotIntervalMinutes: 25,
+  });
 }
 
 /**
@@ -203,5 +237,112 @@ export function generateRandomGroupDrawAndFixtures(params: {
     updatedTeams,
     groupMatches,
     groupLabels,
+  };
+}
+
+export interface LeagueDrawOptions {
+  teams: Team7Aside[];
+  venue?: string;
+  dateLabel?: string;
+  startTime?: string;
+  durationMinutes?: number;
+  slotIntervalMinutes?: number;
+  shuffleTeams?: boolean;
+}
+
+/**
+ * Generates an all-play-all single round-robin League schedule organized into Matchdays
+ * using the Berger circle rotation algorithm, with configurable duration and kickoff intervals.
+ */
+export function generateLeagueFixturesForTeams(
+  options: LeagueDrawOptions
+): {
+  leagueMatches: Match[];
+  matchdayCount: number;
+} {
+  const {
+    teams,
+    venue = 'BALLMANIA RUNDA',
+    dateLabel = '14 Nov',
+    startTime = '09:00',
+    durationMinutes = 20,
+    slotIntervalMinutes = 25,
+    shuffleTeams = true,
+  } = options;
+
+  if (teams.length < 2) {
+    return { leagueMatches: [], matchdayCount: 0 };
+  }
+
+  const ordered = [...teams];
+  if (shuffleTeams) {
+    for (let i = ordered.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = ordered[i];
+      ordered[i] = ordered[j];
+      ordered[j] = tmp;
+    }
+  }
+
+  const list: Array<Team7Aside | null> = [...ordered];
+  if (list.length % 2 !== 0) {
+    list.push(null); // bye slot for odd team count
+  }
+
+  const n = list.length;
+  const totalRounds = n - 1;
+  const half = n / 2;
+  const rotating = [...list];
+
+  const leagueMatches: Match[] = [];
+  let slotCounter = 0;
+
+  for (let r = 0; r < totalRounds; r++) {
+    const matchday = r + 1;
+    for (let i = 0; i < half; i++) {
+      const first = rotating[i];
+      const second = rotating[n - 1 - i];
+      if (first && second) {
+        const [home, away] = r % 2 === 0 ? [first, second] : [second, first];
+        leagueMatches.push({
+          id: `7a-lg-md${matchday}-${home.shortCode.toLowerCase()}-${away.shortCode.toLowerCase()}-${slotCounter + 1}`,
+          category: '7aside',
+          stage: 'LEAGUE',
+          groupId: 'League',
+          matchday,
+          venue: venue.trim() || 'BALLMANIA RUNDA',
+          scheduledTime: formatScheduledKickoffTime(slotCounter, {
+            dateLabel,
+            startTime,
+            slotIntervalMinutes,
+          }),
+          status: 'UPCOMING',
+          elapsedSeconds: 0,
+          clockStartedAt: null,
+          durationMinutes: Math.max(5, Number(durationMinutes) || 20),
+          homeId: home.id,
+          awayId: away.id,
+          homeName: home.name,
+          awayName: away.name,
+          homeShort: home.shortCode,
+          awayShort: away.shortCode,
+          homeColor: home.badgeColor,
+          awayColor: away.badgeColor,
+          homeScore: 0,
+          awayScore: 0,
+          stats: EMPTY_STATS(),
+          events: [],
+        });
+        slotCounter += 1;
+      }
+    }
+
+    const last = rotating.pop() ?? null;
+    rotating.splice(1, 0, last);
+  }
+
+  return {
+    leagueMatches,
+    matchdayCount: totalRounds,
   };
 }

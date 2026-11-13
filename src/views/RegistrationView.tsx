@@ -44,8 +44,7 @@ export const RegistrationView: React.FC<{
     registerPlayer1v1,
     updatePlayer1v1Status,
     deletePlayer1v1,
-    runAutomatedGroupDrawAndFixtures,
-    assignTeamGroupAndSyncFixtures,
+    runAutomatedLeagueFixtures,
     regenerateKnockoutDraw,
   } = useTournament();
 
@@ -145,8 +144,8 @@ export const RegistrationView: React.FC<{
       .length;
     setSubmitBanner(
       filledPlayersCount > 0
-        ? `Team "${created.name}" (${created.shortCode}) registered with ${filledPlayersCount} named players. Run the Group Draw when all teams are in.`
-        : `Team "${created.name}" (${created.shortCode}) registered. Player names can be filled in on tournament day, and groups will be assigned via the Random Draw.`
+        ? `Team "${created.name}" (${created.shortCode}) registered with ${filledPlayersCount} named players. Run Automated League Fixtures when all teams are in.`
+        : `Team "${created.name}" (${created.shortCode}) registered. Player names can be filled in on tournament day, and league fixtures will be generated via Run Automated League Fixtures.`
     );
     setTeamName('');
     setTeamShort('');
@@ -189,10 +188,6 @@ export const RegistrationView: React.FC<{
   const visiblePlayers1v1 = isAdmin
     ? players1v1
     : players1v1.filter((p) => p.registrationStatus === 'CONFIRMED');
-
-  const hasGroupsAssigned = teams7Aside.some(
-    (t) => t.groupId && t.groupId.startsWith('Group ')
-  );
 
   return (
     <div className="space-y-6 pb-28">
@@ -286,7 +281,7 @@ export const RegistrationView: React.FC<{
                     1. Team & Captain Details
                   </div>
                   <span className="font-quicksand text-[11px] font-normal text-[#8E8E8E]">
-                    Groups are drawn automatically after registration
+                    All squads enter the unified 7-Aside League
                   </span>
                 </div>
 
@@ -640,29 +635,30 @@ export const RegistrationView: React.FC<{
         ))}
 
       {/* POST-REGISTRATION AUTOMATED DRAW CALLOUT (ADMIN-ONLY) */}
-      {isAdmin && regMode === '7aside' && teams7Aside.length >= 4 && (
+      {isAdmin && regMode === '7aside' && teams7Aside.length >= 2 && (
         <div className="rounded-[16px] bg-[#161616] border border-[#C8F558]/30 p-4 flex flex-wrap items-center justify-between gap-3 shadow-card">
           <div>
             <div className="text-xs font-bold text-white">
-              Post-Registration Automated Group Draw & Fixtures
+              Post-Registration Automated League Fixtures
             </div>
             <div className="font-quicksand text-[11px] font-normal text-[#8E8E8E]">
-              Randomly draws all {teams7Aside.length} registered teams into
-              groups and creates all round-robin Group Stage fixtures.
+              Creates the single round-robin League schedule across all{' '}
+              {teams7Aside.length} registered teams (you can adjust kickoff
+              times and match durations in Admin).
             </div>
           </div>
           <button
             type="button"
             onClick={() => {
-              const res = runAutomatedGroupDrawAndFixtures('AUTO');
+              const res = runAutomatedLeagueFixtures();
               setSubmitBanner(
-                `Random Group Draw complete: ${teams7Aside.length} teams drawn into ${res.groupCount} groups with ${res.matchCount} fixtures created.`
+                `Automated League Fixtures generated: ${res.matchCount} fixtures across ${res.matchdayCount} Matchdays.`
               );
             }}
             className="px-4 py-2 rounded-full bg-[#C8F558] hover:bg-[#d4f87a] text-[#161616] text-xs font-bold inline-flex items-center gap-1.5 shrink-0"
           >
             <Shuffle className="w-3.5 h-3.5" />
-            <span>Run Random Group Draw & Create Fixtures</span>
+            <span>Run Automated League Fixtures</span>
           </button>
         </div>
       )}
@@ -732,10 +728,7 @@ export const RegistrationView: React.FC<{
                           {team.name}
                         </div>
                         <div className="font-quicksand text-[11px] font-normal text-[#8E8E8E] truncate">
-                          {team.groupId && team.groupId.startsWith('Group ')
-                            ? team.groupId
-                            : 'Awaiting Group Draw'}{' '}
-                          • Capt: {team.captainName}
+                          League Squad • Capt: {team.captainName}
                           {isAdmin ? ` (${team.captainPhone})` : ''}
                         </div>
                       </div>
@@ -807,28 +800,6 @@ export const RegistrationView: React.FC<{
                                 placeholder="Enter M-Pesa Ref"
                                 className="rounded-lg bg-[#161616] border border-white/10 px-2 py-1 text-[11px] font-normal text-white uppercase focus:border-[#C8F558] focus:outline-none w-36"
                               />
-                              {hasGroupsAssigned && (
-                                <select
-                                  value={
-                                    team.groupId.startsWith('Group ')
-                                      ? team.groupId
-                                      : 'Group A'
-                                  }
-                                  onChange={(e) =>
-                                    assignTeamGroupAndSyncFixtures(
-                                      team.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  title="Admin Group Intervention"
-                                  className="rounded-lg bg-[#161616] border border-white/10 px-2 py-1 text-[11px] font-normal text-[#C8F558] focus:border-[#C8F558] focus:outline-none"
-                                >
-                                  <option value="Group A">Group A</option>
-                                  <option value="Group B">Group B</option>
-                                  <option value="Group C">Group C</option>
-                                  <option value="Group D">Group D</option>
-                                </select>
-                              )}
                             </>
                           ) : (
                             <span>Registered 10-Player Squad</span>

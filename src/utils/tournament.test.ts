@@ -10,7 +10,7 @@ import {
   createSpectatorAccount,
 } from './authHelper';
 import {
-  calculateGroupStandings,
+  calculateLeagueStandings,
   calculatePlayerLeaderboards,
 } from './standingsCalculator';
 import {
@@ -20,22 +20,18 @@ import {
 } from './knockoutEngine';
 import { parseAdminPlayerList } from './adminRosterParser';
 import { getEffectiveElapsedSeconds } from './clockHelper';
-import {
-  generateRandomGroupDrawAndFixtures,
-  getRecommendedGroupCount,
-} from './drawGenerator';
+import { generateLeagueFixturesForTeams } from './drawGenerator';
 
 describe('King of the Streets Cup — Standings & Discipline Engine', () => {
-  it('calculates Points, GD, GF, GA, Yellow Cards, and Red Cards accurately for Group A & B', () => {
-    const groupA = calculateGroupStandings(
+  it('calculates Points, GD, GF, GA, Yellow Cards, and Red Cards accurately for the 7-Aside League', () => {
+    const league = calculateLeagueStandings(
       INITIAL_TEAMS_7ASIDE,
-      INITIAL_MATCHES,
-      'Group A'
+      INITIAL_MATCHES
     );
 
-    expect(groupA).toHaveLength(4);
+    expect(league).toHaveLength(8);
     // Runda Royals FC is leading LIVE match 2-1 -> 3 pts, GF 2, GA 1, GD +1, YC 1
-    const runda = groupA.find((r) => r.shortCode === 'RND')!;
+    const runda = league.find((r) => r.shortCode === 'RND')!;
     expect(runda.points).toBe(3);
     expect(runda.gf).toBe(2);
     expect(runda.ga).toBe(1);
@@ -43,11 +39,11 @@ describe('King of the Streets Cup — Standings & Discipline Engine', () => {
     expect(runda.yellowCards).toBe(1);
 
     // Kiambu Road Kings & Westlands Athletic drew 1-1, but WST has 0 YC while KRK has 2 YC
-    const wst = groupA.find((r) => r.shortCode === 'WST')!;
-    const krk = groupA.find((r) => r.shortCode === 'KRK')!;
+    const wst = league.find((r) => r.shortCode === 'WST')!;
+    const krk = league.find((r) => r.shortCode === 'KRK')!;
     expect(wst.points).toBe(1);
     expect(krk.points).toBe(1);
-    expect(groupA.indexOf(wst)).toBeLessThan(groupA.indexOf(krk));
+    expect(league.indexOf(wst)).toBeLessThan(league.indexOf(krk));
   });
 
   it('calculates player goals, assists, and cards across active matches', () => {
@@ -217,32 +213,34 @@ describe('Drift-Free UTC Timestamped Match Clock', () => {
   });
 });
 
-describe('Automated Random Group Draw & Round-Robin Fixture Generator', () => {
-  it('recommends group count dynamically based on registered teams', () => {
-    expect(getRecommendedGroupCount(8)).toBe(2);
-    expect(getRecommendedGroupCount(12)).toBe(3);
-    expect(getRecommendedGroupCount(16)).toBe(4);
-  });
+describe('Automated League Fixtures Generator (Single Round-Robin)', () => {
+  it('generates 7 matchdays and 28 unique fixtures for 8 league teams with custom kickoff & duration', () => {
+    const { leagueMatches, matchdayCount } = generateLeagueFixturesForTeams({
+      teams: INITIAL_TEAMS_7ASIDE,
+      dateLabel: '14 Nov',
+      startTime: '10:30',
+      durationMinutes: 15,
+      slotIntervalMinutes: 20,
+      venue: 'Pitch 1 (Kasarani)',
+      shuffleTeams: false,
+    });
 
-  it('randomly draws 8 teams into 2 groups of 4 and generates all 12 round-robin fixtures', () => {
-    const { updatedTeams, groupMatches, groupLabels } =
-      generateRandomGroupDrawAndFixtures({
-        teams: INITIAL_TEAMS_7ASIDE,
-        groupCount: 'AUTO',
-      });
+    expect(matchdayCount).toBe(7);
+    expect(leagueMatches).toHaveLength(28);
+    expect(leagueMatches.every((m) => m.stage === 'LEAGUE')).toBe(true);
+    expect(leagueMatches.every((m) => m.groupId === 'League')).toBe(true);
+    expect(leagueMatches.every((m) => m.durationMinutes === 15)).toBe(true);
+    expect(leagueMatches.every((m) => m.venue === 'Pitch 1 (Kasarani)')).toBe(
+      true
+    );
+    expect(leagueMatches[0].scheduledTime).toBe('14 Nov • 10:30');
+    expect(leagueMatches[1].scheduledTime).toBe('14 Nov • 10:50');
+    expect(leagueMatches[0].matchday).toBe(1);
 
-    expect(groupLabels).toEqual(['Group A', 'Group B']);
-    expect(updatedTeams).toHaveLength(8);
-    expect(updatedTeams.filter((t) => t.groupId === 'Group A')).toHaveLength(4);
-    expect(updatedTeams.filter((t) => t.groupId === 'Group B')).toHaveLength(4);
-
-    // 4 teams per group = 6 matches per group * 2 groups = 12 round-robin fixtures
-    expect(groupMatches).toHaveLength(12);
-    expect(
-      groupMatches.filter((m) => m.groupId === 'Group A' && m.stage === 'GROUP')
-    ).toHaveLength(6);
-    expect(
-      groupMatches.filter((m) => m.groupId === 'Group B' && m.stage === 'GROUP')
-    ).toHaveLength(6);
+    // Ensure every pair plays exactly once
+    const pairKeys = new Set(
+      leagueMatches.map((m) => [m.homeId, m.awayId].sort().join('__'))
+    );
+    expect(pairKeys.size).toBe(28);
   });
 });

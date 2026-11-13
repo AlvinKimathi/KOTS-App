@@ -32,7 +32,7 @@ export const IconlySearchButton: React.FC<{
     type="button"
     onClick={onClick}
     aria-label="Search"
-    title="Search Matches, Teams & Players"
+    title="Search Fixtures, Teams & Players"
     className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-[#161616]/60 hover:bg-[#242224] border border-white/[0.06] flex items-center justify-center text-white transition-colors shrink-0"
   >
     <svg
@@ -456,7 +456,7 @@ export const LiveScoreHeroCard: React.FC<{
             className="w-[88px] h-[82px] object-contain drop-shadow-[0_4px_10px_rgba(0,0,0,0.85)] select-none"
           />
           <span className="keep-lime-text mt-1 text-[8px] font-bold tracking-widest uppercase text-[#C8F558] drop-shadow">
-            {match.category === '7aside' ? '7-ASIDE CUP' : '1V1 ARENA'}
+            {match.category === '7aside' ? '7-ASIDE LEAGUE' : '1V1 ARENA'}
           </span>
         </div>
       </div>
@@ -513,7 +513,13 @@ export const LiveScoreHeroCard: React.FC<{
             <span className="truncate">{match.venue}</span>
           </div>
           <span className="text-white font-normal tracking-tight shrink-0 ml-2">
-            {match.stage === 'GROUP' ? match.groupId : match.stage}
+            {match.stage === 'GROUP'
+              ? match.groupId
+              : match.stage === 'LEAGUE'
+              ? match.matchday
+                ? `Matchday ${match.matchday}`
+                : 'League'
+              : match.stage}
           </span>
         </div>
       </div>
@@ -599,7 +605,14 @@ export const UpcomingMatchCard: React.FC<{
   const scheduledParts = match.scheduledTime.split('•').map((s) => s.trim());
   const dateLabel = scheduledParts[0] || match.scheduledTime;
   const timeLabel = scheduledParts[1] || 'TBD';
-  const stageLabel = match.stage === 'GROUP' ? match.groupId : match.stage;
+  const stageLabel =
+    match.stage === 'GROUP'
+      ? match.groupId
+      : match.stage === 'LEAGUE'
+      ? match.matchday
+        ? `Matchday ${match.matchday}`
+        : 'League'
+      : match.stage;
 
   return (
     <button
@@ -668,7 +681,7 @@ export const UpcomingMatchCard: React.FC<{
  * Dashed #7C9A32 border over #161616 fill with centered bold white text.
  */
 export const EmptyMatchesCard: React.FC<{ label?: string }> = ({
-  label = 'No Upcoming Matches',
+  label = 'No Upcoming Fixtures',
 }) => (
   <div className="w-full h-[136px] rounded-[12px] border border-dashed border-[#7C9A32]/60 bg-[#161616] px-4 flex items-center justify-center">
     <span className="text-sm font-bold text-white tracking-tight">{label}</span>

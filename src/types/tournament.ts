@@ -1,6 +1,6 @@
 export type TournamentCategory = '7aside' | '1v1';
 
-export type KnockoutStage = 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
+export type KnockoutStage = 'LEAGUE' | 'GROUP' | 'R16' | 'QF' | 'SF' | 'FINAL';
 
 export type RegistrationStatus = 'CONFIRMED' | 'PENDING';
 
@@ -105,7 +105,8 @@ export interface Match {
   id: string;
   category: TournamentCategory;
   stage: KnockoutStage;
-  groupId?: string; // e.g., "Group A" for GROUP stage, or "R16", "QF", "SF", "FINAL"
+  groupId?: string; // e.g., "League" for LEAGUE stage, or "Group A" / "R16" / "FINAL"
+  matchday?: number; // Round / Matchday number for league fixtures
   bracketOrder?: number; // 1..8 for R16, 1..4 for QF, 1..2 for SF, 1 for FINAL
   nextMatchId?: string;
   nextMatchSlot?: 'HOME' | 'AWAY';

@@ -196,7 +196,7 @@ const AppContent: React.FC = () => {
   const { session, matches } = useTournament();
   const [activeTab, setActiveTab] = useState<AppNavTab>('home');
   const [standingsSubTab, setStandingsSubTab] =
-    useState<StandingsSubTab>('group');
+    useState<StandingsSubTab>('league');
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);

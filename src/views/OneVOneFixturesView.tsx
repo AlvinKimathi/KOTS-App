@@ -96,7 +96,7 @@ export const OneVOneFixturesView: React.FC<{
           <SectionTabHeader title="Live 1v1" />
 
           {liveMatches.length === 0 ? (
-            <EmptyMatchesCard label="No Live 1v1 Matches Right Now" />
+            <EmptyMatchesCard label="No Live 1v1 Fixtures Right Now" />
           ) : liveMatches.length === 1 ? (
             <LiveScoreHeroCard
               match={liveMatches[0]}
