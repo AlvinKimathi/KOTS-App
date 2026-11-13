@@ -177,10 +177,7 @@ export const TournamentView: React.FC<{
           <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] overflow-hidden shadow-card">
             <div className="px-4 py-3 bg-[#242224] border-b border-white/[0.05] flex items-center justify-between">
               <span className="text-xs font-bold text-white uppercase tracking-wider">
-                7-Aside League Standings
-              </span>
-              <span className="font-quicksand text-[11px] text-[#C8F558] font-normal">
-                PTS • GD • GF • GA • Cards
+                League Standings
               </span>
             </div>
 
