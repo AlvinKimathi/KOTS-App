@@ -162,7 +162,7 @@ interface TournamentContextValue {
     badgeColor: string;
     groupId?: string;
     captainName: string;
-    captainPhone: string;
+    captainPhone?: string;
     playerNames: string[];
     mpesaReference?: string;
     registrationStatus?: RegistrationStatus;
@@ -175,6 +175,8 @@ interface TournamentContextValue {
         | 'name'
         | 'shortCode'
         | 'groupId'
+        | 'captainName'
+        | 'captainPhone'
         | 'registrationStatus'
         | 'mpesaReference'
         | 'players'
@@ -1358,7 +1360,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     badgeColor: string;
     groupId?: string;
     captainName: string;
-    captainPhone: string;
+    captainPhone?: string;
     playerNames: string[];
     mpesaReference?: string;
     registrationStatus?: RegistrationStatus;
@@ -1388,7 +1390,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       badgeColor: input.badgeColor || '#C8F558',
       groupId: input.groupId || 'League',
       captainName: input.captainName.trim(),
-      captainPhone: input.captainPhone.trim(),
+      captainPhone: (input.captainPhone || '').trim(),
       players,
       registrationStatus:
         input.registrationStatus ||
@@ -1413,6 +1415,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         | 'name'
         | 'shortCode'
         | 'groupId'
+        | 'captainName'
+        | 'captainPhone'
         | 'registrationStatus'
         | 'mpesaReference'
         | 'players'

@@ -125,7 +125,7 @@ export const RegistrationView: React.FC<{
   const handleTeamSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
-    if (!teamName.trim() || !captainName.trim() || !captainPhone.trim()) return;
+    if (!teamName.trim() || !captainName.trim()) return;
 
     const created = registerTeam7Aside({
       name: teamName,
@@ -332,14 +332,13 @@ export const RegistrationView: React.FC<{
                   </div>
                   <div>
                     <label className="block font-quicksand text-[11px] font-normal text-[#8E8E8E] mb-1">
-                      Captain Phone *
+                      Captain Phone (Optional)
                     </label>
                     <input
                       type="tel"
-                      required
                       value={captainPhone}
                       onChange={(e) => setCaptainPhone(e.target.value)}
-                      placeholder="e.g. 0712345678"
+                      placeholder="e.g. 0712345678 (or add later)"
                       className="w-full rounded-xl bg-[#141513] border border-white/10 px-3.5 py-2.5 text-xs font-normal text-white focus:border-[#C8F558] focus:outline-none"
                     />
                   </div>
@@ -730,7 +729,9 @@ export const RegistrationView: React.FC<{
                         </div>
                         <div className="font-quicksand text-[11px] font-normal text-[#8E8E8E] truncate">
                           League Squad • Capt: {team.captainName}
-                          {isAdmin ? ` (${team.captainPhone})` : ''}
+                          {isAdmin && team.captainPhone
+                            ? ` (${team.captainPhone})`
+                            : ''}
                         </div>
                       </div>
                     </div>
@@ -787,21 +788,37 @@ export const RegistrationView: React.FC<{
                       <div className="flex flex-wrap items-center justify-between gap-2 font-quicksand text-[11px] font-normal text-[#8E8E8E]">
                         <div className="flex flex-wrap items-center gap-2">
                           {isAdmin ? (
-                            <>
-                              <span>M-Pesa Ref:</span>
-                              <input
-                                type="text"
-                                value={team.mpesaReference || ''}
-                                onChange={(e) =>
-                                  updateTeam7Aside(team.id, {
-                                    mpesaReference:
-                                      e.target.value.toUpperCase(),
-                                  })
-                                }
-                                placeholder="Enter M-Pesa Ref"
-                                className="rounded-lg bg-[#161616] border border-white/10 px-2 py-1 text-[11px] font-normal text-white uppercase focus:border-[#C8F558] focus:outline-none w-36"
-                              />
-                            </>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <div className="flex items-center gap-1.5">
+                                <span>M-Pesa Ref:</span>
+                                <input
+                                  type="text"
+                                  value={team.mpesaReference || ''}
+                                  onChange={(e) =>
+                                    updateTeam7Aside(team.id, {
+                                      mpesaReference:
+                                        e.target.value.toUpperCase(),
+                                    })
+                                  }
+                                  placeholder="Enter M-Pesa Ref"
+                                  className="rounded-lg bg-[#161616] border border-white/10 px-2 py-1 text-[11px] font-normal text-white uppercase focus:border-[#C8F558] focus:outline-none w-32"
+                                />
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span>Captain Phone:</span>
+                                <input
+                                  type="tel"
+                                  value={team.captainPhone || ''}
+                                  onChange={(e) =>
+                                    updateTeam7Aside(team.id, {
+                                      captainPhone: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Add phone later"
+                                  className="rounded-lg bg-[#161616] border border-white/10 px-2 py-1 text-[11px] font-normal text-white focus:border-[#C8F558] focus:outline-none w-32"
+                                />
+                              </div>
+                            </div>
                           ) : (
                             <span>Registered 10-Player Squad</span>
                           )}
