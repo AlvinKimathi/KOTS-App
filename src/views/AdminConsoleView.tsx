@@ -24,11 +24,87 @@ import {
 import {
   AppNavTab,
   KnockoutStage,
+  Match,
   MatchStatus,
   TournamentCategory,
 } from '../types/tournament';
 
 type AdminMode = 'fixtures' | 'standings';
+
+/**
+ * Shared Knockout Tie Card supporting slot assignment and Referee deep-link
+ * across both 7-Aside Top-8 Knockouts and 1v1 Arena brackets.
+ */
+const KnockoutTieEditorCard: React.FC<{
+  match: Match;
+  participants: { id: string; name: string }[];
+  onAssignSlot: (
+    matchId: string,
+    slot: 'HOME' | 'AWAY',
+    participantId: string
+  ) => void;
+  onSelectMatch: (matchId: string) => void;
+}> = ({ match: m, participants, onAssignSlot, onSelectMatch }) => {
+  const winnerSide = resolveMatchWinnerSide(m);
+  return (
+    <div className="rounded-[14px] bg-[#161616] border border-white/[0.06] p-3.5 space-y-2 shadow-card">
+      <div className="flex items-center justify-between text-[10px] text-[#8E8E8E]">
+        <span className="font-bold text-[#C8F558]">
+          {m.stage} #{m.bracketOrder} • {m.scheduledTime} ({m.durationMinutes}m)
+        </span>
+        <button
+          type="button"
+          onClick={() => onSelectMatch(m.id)}
+          className="font-normal text-[#C8F558] hover:underline inline-flex items-center gap-1"
+        >
+          <span>Open Referee</span>
+          <ArrowRight className="w-3 h-3" />
+        </button>
+      </div>
+
+      {(['HOME', 'AWAY'] as const).map((slot) => {
+        const isHome = slot === 'HOME';
+        const entityId = isHome ? m.homeId : m.awayId;
+        const shortCode = isHome ? m.homeShort : m.awayShort;
+        const color = isHome ? m.homeColor : m.awayColor;
+        const score = isHome ? m.homeScore : m.awayScore;
+        const isWinner = winnerSide === slot;
+
+        return (
+          <div
+            key={slot}
+            className={`flex items-center justify-between gap-2 p-2 rounded-xl ${
+              isWinner
+                ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
+                : 'bg-[#242224]'
+            }`}
+          >
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <TeamCrestBadge
+                shortCode={shortCode}
+                color={color}
+                size="xs"
+              />
+              <select
+                value={entityId}
+                onChange={(e) => onAssignSlot(m.id, slot, e.target.value)}
+                className="bg-transparent text-xs font-normal text-white focus:outline-none truncate max-w-[200px]"
+              >
+                <option value="TBD">TBD / Awaiting Seed</option>
+                {participants.map((ent) => (
+                  <option key={ent.id} value={ent.id}>
+                    {ent.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="text-xs font-bold text-white">{score}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export const AdminConsoleView: React.FC<{
   onSelectMatch: (matchId: string) => void;
@@ -72,10 +148,16 @@ export const AdminConsoleView: React.FC<{
     useState<TournamentCategory>('7aside');
   const [leagueDateLabel, setLeagueDateLabel] = useState('14 Nov');
   const [leagueStartTime, setLeagueStartTime] = useState('09:00');
-  const [leagueDurationMinutes, setLeagueDurationMinutes] = useState<number>(20);
+  const [leagueDurationMinutes, setLeagueDurationMinutes] = useState<number>(10);
   const [leagueSlotIntervalMinutes, setLeagueSlotIntervalMinutes] =
-    useState<number>(25);
+    useState<number>(15);
   const [leagueVenue, setLeagueVenue] = useState('BALLMANIA RUNDA');
+
+  // Top 8 7-Aside Knockout config state
+  const [koStartTime, setKoStartTime] = useState('17:15');
+  const [koQfDuration, setKoQfDuration] = useState<number>(10);
+  const [koSfFinalDuration, setKoSfFinalDuration] = useState<number>(15);
+  const [koCooldown, setKoCooldown] = useState<number>(5);
 
   // 1v1 Draw state
   const [drawStartStage, setDrawStartStage] = useState<
@@ -109,10 +191,16 @@ export const AdminConsoleView: React.FC<{
   ).sort((a, b) => a - b);
 
   const recommended1v1Stage = getRecommendedKnockoutStartStage(players1v1.length);
+  const knockout7AsideMatches = matches.filter(
+    (m) => m.category === '7aside' && m.stage !== 'GROUP' && m.stage !== 'LEAGUE'
+  );
   const knockout1v1Matches = matches.filter(
     (m) => m.category === '1v1' && m.stage !== 'GROUP' && m.stage !== 'LEAGUE'
   );
   const stagesOrder: KnockoutStage[] = ['R16', 'QF', 'SF', 'FINAL'];
+  const active7AsideStages = stagesOrder.filter((st) =>
+    knockout7AsideMatches.some((m) => m.stage === st)
+  );
   const active1v1Stages = stagesOrder.filter((st) =>
     knockout1v1Matches.some((m) => m.stage === st)
   );
@@ -577,6 +665,176 @@ export const AdminConsoleView: React.FC<{
                 </div>
               </div>
 
+              {/* TOP 8 KNOCKOUT GENERATOR (QF -> SF -> FINAL) */}
+              <div className="rounded-[16px] bg-[#161616] border border-[#C8F558]/25 p-4 space-y-4 shadow-card">
+                <div className="flex items-start gap-2.5">
+                  <GitBranch className="w-4 h-4 text-[#C8F558] shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                      Top 8 Knockout Bracket (QF • SF • Final)
+                    </h3>
+                    <p className="font-quicksand text-[11px] font-normal text-[#8E8E8E] mt-0.5">
+                      Top 8 from League Standings advance to Quarter-Finals
+                      (#1v#8, #4v#5, #2v#7, #3v#6), then Semi-Finals and Final.
+                      Your opening-phase fixtures are preserved untouched.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                      KO Start (24h)
+                    </label>
+                    <input
+                      type="text"
+                      value={koStartTime}
+                      onChange={(e) => setKoStartTime(e.target.value)}
+                      className="w-full rounded-xl bg-[#141513] border border-white/10 px-3 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                      QF Mins
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={60}
+                      value={koQfDuration}
+                      onChange={(e) => setKoQfDuration(Number(e.target.value))}
+                      className="w-full rounded-xl bg-[#141513] border border-white/10 px-3 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                      SF & Final Mins
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={60}
+                      value={koSfFinalDuration}
+                      onChange={(e) =>
+                        setKoSfFinalDuration(Number(e.target.value))
+                      }
+                      className="w-full rounded-xl bg-[#141513] border border-white/10 px-3 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-[#8E8E8E] mb-1">
+                      Cooldown (Mins)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={koCooldown}
+                      onChange={(e) => setKoCooldown(Number(e.target.value))}
+                      className="w-full rounded-xl bg-[#141513] border border-white/10 px-3 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={teams7Aside.length < 8}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Seed Top 8 from current League Standings into QF (#1v#8, #4v#5, #2v#7, #3v#6) -> SF -> Final starting at ${koStartTime}?`
+                        )
+                      ) {
+                        regenerateKnockoutDraw({
+                          category: '7aside',
+                          startStage: 'QF',
+                          source: 'TOP_8_STANDINGS',
+                          dateLabel: leagueDateLabel,
+                          startTime: koStartTime,
+                          qfDurationMinutes: koQfDuration,
+                          sfFinalDurationMinutes: koSfFinalDuration,
+                          cooldownMinutes: koCooldown,
+                          venue: leagueVenue,
+                        });
+                        setNotice(
+                          'Seeded Top 8 teams from Standings into Quarter-Finals -> Semi-Finals -> Final.'
+                        );
+                      }
+                    }}
+                    className="px-4 py-2 rounded-full bg-[#C8F558] text-[#161616] text-xs font-bold flex items-center gap-1.5 hover:bg-[#d4f87a] transition-colors disabled:opacity-50"
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>Seed Top 8 From Standings</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Reset/create empty QF -> SF -> Final placeholder ties starting ${koStartTime}?`
+                        )
+                      ) {
+                        regenerateKnockoutDraw({
+                          category: '7aside',
+                          startStage: 'QF',
+                          source: 'TBD_EMPTY',
+                          dateLabel: leagueDateLabel,
+                          startTime: koStartTime,
+                          qfDurationMinutes: koQfDuration,
+                          sfFinalDurationMinutes: koSfFinalDuration,
+                          cooldownMinutes: koCooldown,
+                          venue: leagueVenue,
+                        });
+                        setNotice(
+                          'Created empty Top-8 Knockout schedule placeholders (QF -> SF -> Final).'
+                        );
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-full bg-[#242224] text-white border border-white/10 hover:border-[#C8F558] text-xs font-normal"
+                  >
+                    Create Empty Bracket (TBD)
+                  </button>
+                </div>
+              </div>
+
+              {active7AsideStages.length > 0 && (
+                <div className="space-y-4">
+                  {active7AsideStages.map((st) => {
+                    const stageMatches = knockout7AsideMatches
+                      .filter((m) => m.stage === st)
+                      .sort(
+                        (a, b) => (a.bracketOrder || 0) - (b.bracketOrder || 0)
+                      );
+                    return (
+                      <div key={st} className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="px-2.5 py-1 rounded-md bg-[#C8F558] text-[#161616] text-[10px] font-bold uppercase">
+                            {st} 7-Aside Knockouts
+                          </span>
+                          <span className="font-quicksand text-[11px] font-normal text-[#8E8E8E]">
+                            {stageMatches.length}{' '}
+                            {stageMatches.length === 1 ? 'Tie' : 'Ties'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-2.5">
+                          {stageMatches.map((m) => (
+                            <KnockoutTieEditorCard
+                              key={m.id}
+                              match={m}
+                              participants={teams7Aside}
+                              onAssignSlot={assignSlotParticipant}
+                              onSelectMatch={onSelectMatch}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Matchday Overview & Quick Swap / Timing Adjustment */}
               {availableMatchdays.length > 0 && (
                 <div className="space-y-4">
@@ -719,107 +977,15 @@ export const AdminConsoleView: React.FC<{
                       </div>
 
                       <div className="grid grid-cols-1 gap-2.5">
-                        {stageMatches.map((m) => {
-                          const winnerSide = resolveMatchWinnerSide(m);
-                          return (
-                            <div
-                              key={m.id}
-                              className="rounded-[14px] bg-[#161616] border border-white/[0.06] p-3.5 space-y-2 shadow-card"
-                            >
-                              <div className="flex items-center justify-between text-[10px] text-[#8E8E8E]">
-                                <span className="font-bold text-[#C8F558]">
-                                  {m.stage} #{m.bracketOrder}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectMatch(m.id)}
-                                  className="font-normal text-[#C8F558] hover:underline inline-flex items-center gap-1"
-                                >
-                                  <span>Open Referee</span>
-                                  <ArrowRight className="w-3 h-3" />
-                                </button>
-                              </div>
-
-                              <div
-                                className={`flex items-center justify-between gap-2 p-2 rounded-xl ${
-                                  winnerSide === 'HOME'
-                                    ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                                    : 'bg-[#242224]'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <TeamCrestBadge
-                                    shortCode={m.homeShort}
-                                    color={m.homeColor}
-                                    size="xs"
-                                  />
-                                  <select
-                                    value={m.homeId}
-                                    onChange={(e) =>
-                                      assignSlotParticipant(
-                                        m.id,
-                                        'HOME',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="bg-transparent text-xs font-normal text-white focus:outline-none truncate max-w-[200px]"
-                                  >
-                                    <option value="TBD">
-                                      TBD / Bye Slot
-                                    </option>
-                                    {players1v1.map((ent) => (
-                                      <option key={ent.id} value={ent.id}>
-                                        {ent.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <span className="text-xs font-bold text-white">
-                                  {m.homeScore}
-                                </span>
-                              </div>
-
-                              <div
-                                className={`flex items-center justify-between gap-2 p-2 rounded-xl ${
-                                  winnerSide === 'AWAY'
-                                    ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                                    : 'bg-[#242224]'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                  <TeamCrestBadge
-                                    shortCode={m.awayShort}
-                                    color={m.awayColor}
-                                    size="xs"
-                                  />
-                                  <select
-                                    value={m.awayId}
-                                    onChange={(e) =>
-                                      assignSlotParticipant(
-                                        m.id,
-                                        'AWAY',
-                                        e.target.value
-                                      )
-                                    }
-                                    className="bg-transparent text-xs font-normal text-white focus:outline-none truncate max-w-[200px]"
-                                  >
-                                    <option value="TBD">
-                                      TBD / Bye Slot
-                                    </option>
-                                    {players1v1.map((ent) => (
-                                      <option key={ent.id} value={ent.id}>
-                                        {ent.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                <span className="text-xs font-bold text-white">
-                                  {m.awayScore}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                        {stageMatches.map((m) => (
+                          <KnockoutTieEditorCard
+                            key={m.id}
+                            match={m}
+                            participants={players1v1}
+                            onAssignSlot={assignSlotParticipant}
+                            onSelectMatch={onSelectMatch}
+                          />
+                        ))}
                       </div>
                     </div>
                   );

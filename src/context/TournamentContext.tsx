@@ -50,7 +50,10 @@ import {
   generateRoundRobinFixturesForTeams,
   LeagueDrawOptions,
 } from '../utils/drawGenerator';
-import { calculateGroupStandings } from '../utils/standingsCalculator';
+import {
+  calculateGroupStandings,
+  calculateLeagueStandings,
+} from '../utils/standingsCalculator';
 
 const STORAGE_KEY = 'kots_cup_state_v1';
 const SESSION_STORAGE_KEY = 'kots_cup_session_v2';
@@ -148,7 +151,18 @@ interface TournamentContextValue {
   regenerateKnockoutDraw: (params: {
     category: TournamentCategory;
     startStage: 'R16' | 'QF' | 'SF' | 'AUTO';
-    source: 'GROUP_STANDINGS' | 'ALL_REGISTERED' | 'RANDOM_DRAW';
+    source:
+      | 'TOP_8_STANDINGS'
+      | 'TBD_EMPTY'
+      | 'GROUP_STANDINGS'
+      | 'ALL_REGISTERED'
+      | 'RANDOM_DRAW';
+    dateLabel?: string;
+    startTime?: string;
+    qfDurationMinutes?: number;
+    sfFinalDurationMinutes?: number;
+    cooldownMinutes?: number;
+    venue?: string;
   }) => void;
   assignSlotParticipant: (
     matchId: string,
@@ -1200,14 +1214,36 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
   const regenerateKnockoutDraw = (params: {
     category: TournamentCategory;
     startStage: 'R16' | 'QF' | 'SF' | 'AUTO';
-    source: 'GROUP_STANDINGS' | 'ALL_REGISTERED' | 'RANDOM_DRAW';
+    source:
+      | 'TOP_8_STANDINGS'
+      | 'TBD_EMPTY'
+      | 'GROUP_STANDINGS'
+      | 'ALL_REGISTERED'
+      | 'RANDOM_DRAW';
+    dateLabel?: string;
+    startTime?: string;
+    qfDurationMinutes?: number;
+    sfFinalDurationMinutes?: number;
+    cooldownMinutes?: number;
+    venue?: string;
   }) => {
     if (session.role !== 'ADMIN') return;
     commitData((prev) => {
       let participants: BracketParticipant[] = [];
 
-      if (params.category === '7aside') {
-        if (params.source === 'GROUP_STANDINGS') {
+      if (params.source === 'TBD_EMPTY') {
+        participants = [];
+      } else if (params.category === '7aside') {
+        if (params.source === 'TOP_8_STANDINGS') {
+          participants = calculateLeagueStandings(prev.teams7Aside, prev.matches)
+            .slice(0, 8)
+            .map((r) => ({
+              id: r.teamId,
+              name: r.teamName,
+              shortCode: r.shortCode,
+              color: r.badgeColor,
+            }));
+        } else if (params.source === 'GROUP_STANDINGS') {
           const groups = Array.from(
             new Set(
               prev.teams7Aside
@@ -1284,13 +1320,26 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         participants: participants.slice(0, maxParticipants),
         startStage: resolvedStartStage,
         venue:
-          params.category === '7aside'
+          params.venue ||
+          (params.category === '7aside'
             ? 'BALLMANIA RUNDA'
-            : 'BALLMANIA 1V1 ARENA',
+            : 'BALLMANIA 1V1 ARENA'),
+        dateLabel: params.dateLabel,
+        startTime: params.startTime,
+        qfDurationMinutes: params.qfDurationMinutes,
+        sfFinalDurationMinutes: params.sfFinalDurationMinutes,
+        cooldownMinutes: params.cooldownMinutes,
+        seedChampionshipOrder:
+          params.source === 'TOP_8_STANDINGS' && resolvedStartStage === 'QF',
       });
 
       const retainedMatches = prev.matches.filter(
-        (m) => !(m.category === params.category && m.stage !== 'GROUP')
+        (m) =>
+          !(
+            m.category === params.category &&
+            m.stage !== 'GROUP' &&
+            m.stage !== 'LEAGUE'
+          )
       );
 
       return {

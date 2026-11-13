@@ -4,6 +4,7 @@ import {
   MatchStats,
   TournamentCategory,
 } from '../types/tournament';
+import { formatMinutesClock, parseStartTimeMinutes } from './drawGenerator';
 
 export interface BracketParticipant {
   id: string;
@@ -24,6 +25,27 @@ const EMPTY_STATS = (): MatchStats => ({
 });
 
 /**
+ * Arranges seeded Top-8 qualifiers so #1 and #2 sit on opposite sides of the bracket:
+ * QF1: #1 vs #8, QF2: #4 vs #5, QF3: #2 vs #7, QF4: #3 vs #6.
+ */
+export function orderChampionshipQuarterFinalSeeds(
+  participants: BracketParticipant[]
+): BracketParticipant[] {
+  if (participants.length < 8) return participants;
+  const top8 = participants.slice(0, 8);
+  return [
+    top8[0],
+    top8[7],
+    top8[3],
+    top8[4],
+    top8[1],
+    top8[6],
+    top8[2],
+    top8[5],
+  ];
+}
+
+/**
  * Determines the recommended starting knockout stage based on how many teams/players
  * have registered or qualified, while always supporting R16 -> QF -> SF -> FINAL.
  */
@@ -37,22 +59,34 @@ export function getRecommendedKnockoutStartStage(
 
 /**
  * Generates a complete linked Knockout Bracket tree starting from R16, QF, or SF
- * (R16 -> QF -> SF -> FINAL), automatically handling TBD slots or byes when
- * fewer than 16 (or 8) teams are currently registered.
+ * (R16 -> QF -> SF -> FINAL), with configurable tiered durations (e.g. 10 min QFs,
+ * 15 min Semis & Final) and consecutive cooldown gaps.
  */
 export function generateKnockoutBracket(params: {
   category: TournamentCategory;
   participants: BracketParticipant[];
   startStage?: 'R16' | 'QF' | 'SF';
   venue?: string;
+  dateLabel?: string;
+  startTime?: string;
   durationMinutes?: number;
+  qfDurationMinutes?: number;
+  sfFinalDurationMinutes?: number;
+  cooldownMinutes?: number;
+  seedChampionshipOrder?: boolean;
 }): Match[] {
   const {
     category,
     participants,
     startStage = 'R16',
     venue = 'BALLMANIA RUNDA',
-    durationMinutes = category === '7aside' ? 20 : 4,
+    dateLabel = '14 Nov',
+    startTime = category === '7aside' ? '17:15' : '13:00',
+    durationMinutes,
+    qfDurationMinutes = durationMinutes ?? (category === '7aside' ? 10 : 4),
+    sfFinalDurationMinutes = durationMinutes ?? (category === '7aside' ? 15 : 4),
+    cooldownMinutes = 5,
+    seedChampionshipOrder = false,
   } = params;
 
   const prefix = `${category}-ko`;
@@ -71,6 +105,7 @@ export function generateKnockoutBracket(params: {
     stage: KnockoutStage,
     order: number,
     scheduledTime: string,
+    matchDuration: number,
     nextMatchId?: string,
     nextMatchSlot?: 'HOME' | 'AWAY'
   ): Match => ({
@@ -85,7 +120,7 @@ export function generateKnockoutBracket(params: {
     scheduledTime,
     status: 'UPCOMING',
     elapsedSeconds: 0,
-    durationMinutes,
+    durationMinutes: matchDuration,
     homeId: 'TBD',
     awayId: 'TBD',
     homeName: 'TBD',
@@ -101,6 +136,16 @@ export function generateKnockoutBracket(params: {
   });
 
   const matches: Match[] = [];
+  let cursorMinutes = parseStartTimeMinutes(startTime);
+  const safeCooldown = Math.max(0, Number(cooldownMinutes) || 0);
+  const qfMins = Math.max(4, Number(qfDurationMinutes) || 10);
+  const sfFinalMins = Math.max(4, Number(sfFinalDurationMinutes) || 15);
+
+  const allocateSlot = (stageDuration: number): string => {
+    const label = formatMinutesClock(cursorMinutes, dateLabel);
+    cursorMinutes += stageDuration + safeCooldown;
+    return label;
+  };
 
   // 1. R16 (8 matches) if starting at R16
   if (startStage === 'R16') {
@@ -112,7 +157,8 @@ export function generateKnockoutBracket(params: {
           r16Ids[i],
           'R16',
           i + 1,
-          `14 Nov • ${13 + Math.floor(i / 2)}:${i % 2 === 0 ? '00' : '25'}`,
+          allocateSlot(qfMins),
+          qfMins,
           targetQfId,
           slot
         )
@@ -130,7 +176,8 @@ export function generateKnockoutBracket(params: {
           qfIds[i],
           'QF',
           i + 1,
-          `14 Nov • ${15 + Math.floor(i / 2)}:${i % 2 === 0 ? '00' : '30'}`,
+          allocateSlot(qfMins),
+          qfMins,
           targetSfId,
           slot
         )
@@ -146,7 +193,8 @@ export function generateKnockoutBracket(params: {
         sfIds[i],
         'SF',
         i + 1,
-        `14 Nov • 17:${i === 0 ? '00' : '30'}`,
+        allocateSlot(sfFinalMins),
+        sfFinalMins,
         finalId,
         slot
       )
@@ -155,15 +203,27 @@ export function generateKnockoutBracket(params: {
 
   // 4. Grand Final (1 match)
   matches.push(
-    createEmptyMatch(finalId, 'FINAL', 1, '14 Nov • 18:30', undefined, undefined)
+    createEmptyMatch(
+      finalId,
+      'FINAL',
+      1,
+      allocateSlot(sfFinalMins),
+      sfFinalMins,
+      undefined,
+      undefined
+    )
   );
 
   // Seed participants into the starting stage
+  const orderedParticipants =
+    seedChampionshipOrder && startStage === 'QF'
+      ? orderChampionshipQuarterFinalSeeds(participants)
+      : participants;
   const entryStageMatches = matches.filter((m) => m.stage === startStage);
   const totalSlots = entryStageMatches.length * 2;
   const padded: (BracketParticipant | null)[] = Array.from(
     { length: totalSlots },
-    (_, i) => participants[i] ?? null
+    (_, i) => orderedParticipants[i] ?? null
   );
 
   // Pair top seeds with bottom slots or sequential pairs

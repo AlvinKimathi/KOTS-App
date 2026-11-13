@@ -14,7 +14,7 @@ import {
 } from '../components/ui/FigmaWidgets';
 import { AppNavTab } from '../types/tournament';
 
-type FilterPill = '7aside' | '1v1' | 'all';
+type FilterPill = '7aside' | 'knockouts' | '1v1' | 'all';
 
 const FEED_1_PHOTOS = [
   '/feed/feed-turf-circle.jpg',
@@ -53,6 +53,8 @@ export const HomeView: React.FC<{
 
   const filterMatches = matches.filter((m) => {
     if (activeFilter === '7aside') return m.category === '7aside';
+    if (activeFilter === 'knockouts')
+      return m.stage !== 'GROUP' && m.stage !== 'LEAGUE';
     if (activeFilter === '1v1') return m.category === '1v1';
     return true;
   });
@@ -79,8 +81,14 @@ export const HomeView: React.FC<{
     {
       id: '7aside',
       line1: 'King of the Streets',
-      line2: '7-Aside League',
+      line2: 'Group Phase',
       icon: <KotsCrownEmblem size={34} dark={activeFilter === '7aside'} />,
+    },
+    {
+      id: 'knockouts',
+      line1: 'Top 8 Championship',
+      line2: 'QF • SF • Final',
+      icon: <Trophy className="w-6 h-6" />,
     },
     {
       id: '1v1',

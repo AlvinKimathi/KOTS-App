@@ -14,9 +14,150 @@ import {
   calculatePlayerLeaderboards,
 } from '../utils/standingsCalculator';
 import { resolveMatchWinnerSide } from '../utils/knockoutEngine';
-import { AppNavTab, KnockoutStage } from '../types/tournament';
+import { AppNavTab, KnockoutStage, Match } from '../types/tournament';
 
-export type StandingsSubTab = 'league' | 'stats' | '1v1';
+export type StandingsSubTab = 'league' | 'knockout' | 'stats' | '1v1';
+
+/**
+ * Shared Knockout Bracket section used by both 7-Aside Knockouts and 1v1 Arena.
+ */
+const KnockoutBracketSection: React.FC<{
+  matches: Match[];
+  activeStages: KnockoutStage[];
+  finalTitle: string;
+  emptyLabel: string;
+  onSelectMatch: (matchId: string) => void;
+}> = ({ matches, activeStages, finalTitle, emptyLabel, onSelectMatch }) => {
+  if (activeStages.length === 0) {
+    return (
+      <div className="rounded-[16px] bg-[#161616] border border-white/[0.06] p-6 text-center text-xs text-[#8E8E8E] shadow-card">
+        {emptyLabel}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {activeStages.map((stage) => {
+        const stageMatches = matches
+          .filter((m) => m.stage === stage)
+          .sort((a, b) => (a.bracketOrder || 0) - (b.bracketOrder || 0));
+
+        const stageTitle = {
+          LEAGUE: 'League Stage',
+          GROUP: 'Group Stage',
+          R16: 'Round of 16 (R16)',
+          QF: 'Quarter-Finals (QF)',
+          SF: 'Semi-Finals (SF)',
+          FINAL: finalTitle,
+        }[stage];
+
+        return (
+          <div key={stage} className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-[#C8F558] text-[#161616] text-[10px] font-bold uppercase">
+                  {stage}
+                </span>
+                <span className="text-xs font-bold text-white">
+                  {stageTitle}
+                </span>
+              </div>
+              <span className="font-quicksand text-[11px] text-[#8E8E8E]">
+                {stageMatches.length}{' '}
+                {stageMatches.length === 1 ? 'Tie' : 'Ties'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {stageMatches.map((m) => {
+                const winnerSide = resolveMatchWinnerSide(m);
+                const hasPens =
+                  typeof m.homePenalties === 'number' &&
+                  typeof m.awayPenalties === 'number';
+                return (
+                  <div
+                    key={m.id}
+                    className="rounded-[14px] bg-[#161616] border border-white/[0.06] p-3.5 space-y-2.5 hover:border-white/15 transition-all shadow-card"
+                  >
+                    <div className="flex items-center justify-between text-[10px] text-[#8E8E8E]">
+                      <span className="font-bold text-[#C8F558]">
+                        {m.stage} #{m.bracketOrder}
+                      </span>
+                      <span className="font-bold text-white">
+                        {formatMatchClock(m)}
+                      </span>
+                    </div>
+
+                    <div
+                      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
+                        winnerSide === 'HOME'
+                          ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
+                          : 'bg-[#242224]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <TeamCrestBadge
+                          shortCode={m.homeShort}
+                          color={m.homeColor}
+                          size="xs"
+                        />
+                        <span className="text-xs font-bold text-white truncate">
+                          {m.homeName}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-white">
+                        {m.homeScore}
+                        {hasPens ? ` (${m.homePenalties})` : ''}
+                      </span>
+                    </div>
+
+                    <div
+                      className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
+                        winnerSide === 'AWAY'
+                          ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
+                          : 'bg-[#242224]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <TeamCrestBadge
+                          shortCode={m.awayShort}
+                          color={m.awayColor}
+                          size="xs"
+                        />
+                        <span className="text-xs font-bold text-white truncate">
+                          {m.awayName}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold text-white">
+                        {m.awayScore}
+                        {hasPens ? ` (${m.awayPenalties})` : ''}
+                      </span>
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between">
+                      <span className="font-quicksand text-[11px] font-semibold text-[#7C9A32]">
+                        {m.scheduledTime} • {m.durationMinutes} min
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectMatch(m.id)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C8F558] hover:underline"
+                      >
+                        <span>Fixture Center</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export const TournamentView: React.FC<{
   initialSubTab?: StandingsSubTab;
@@ -59,6 +200,13 @@ export const TournamentView: React.FC<{
       : leagueFixtures.filter((m) => m.matchday === selectedMatchday);
 
   const stagesOrder: KnockoutStage[] = ['R16', 'QF', 'SF', 'FINAL'];
+
+  const knockout7AsideMatches = matches.filter(
+    (m) => m.category === '7aside' && m.stage !== 'GROUP' && m.stage !== 'LEAGUE'
+  );
+  const active7AsideStages = stagesOrder.filter((st) =>
+    knockout7AsideMatches.some((m) => m.stage === st)
+  );
 
   const knockout1v1Matches = matches.filter(
     (m) => m.category === '1v1' && m.stage !== 'GROUP' && m.stage !== 'LEAGUE'
@@ -131,7 +279,7 @@ export const TournamentView: React.FC<{
             Standings
           </h1>
           <p className="font-quicksand text-xs text-[#9E9E9E] font-normal">
-            League Table • Top Stats • 1v1 Arena
+            Group Phase • Top 8 Knockouts • Stats • 1v1
           </p>
         </div>
 
@@ -144,13 +292,14 @@ export const TournamentView: React.FC<{
         </div>
       </header>
 
-      {/* Clean Single-Row 3-Tab Standings Switcher */}
-      <div className="grid grid-cols-3 gap-2 bg-[#161616] p-1.5 rounded-full border border-white/[0.06]">
+      {/* Clean Single-Row 4-Tab Standings Switcher */}
+      <div className="grid grid-cols-4 gap-1.5 bg-[#161616] p-1.5 rounded-full border border-white/[0.06]">
         {(
           [
-            { id: 'league', label: 'League Table' },
+            { id: 'league', label: 'Standings' },
+            { id: 'knockout', label: 'Knockouts' },
             { id: 'stats', label: 'Top Stats' },
-            { id: '1v1', label: '1v1 Arena' },
+            { id: '1v1', label: '1v1' },
           ] as const
         ).map((tab) => {
           const isActive = activeSubTab === tab.id;
@@ -159,7 +308,7 @@ export const TournamentView: React.FC<{
               key={tab.id}
               type="button"
               onClick={() => setActiveSubTab(tab.id)}
-              className={`h-[40px] px-3 rounded-full text-xs transition-all ${
+              className={`h-[38px] px-2 rounded-full text-[11px] transition-all truncate ${
                 isActive
                   ? 'bg-white text-[#161616] border-2 border-[#C8F558] font-bold'
                   : 'text-[#8E8E8E] hover:text-white font-normal'
@@ -244,18 +393,20 @@ export const TournamentView: React.FC<{
                   </thead>
                   <tbody className="divide-y divide-white/[0.05] text-xs">
                     {leagueStandings.map((row, index) => {
-                      const isLeaderZone = index < 3;
+                      const isQuarterFinalZone = index < 8;
                       return (
                         <tr
                           key={row.teamId}
-                          className="hover:bg-[#242224]/60 transition-colors"
+                          className={`hover:bg-[#242224]/60 transition-colors ${
+                            index === 7 ? 'border-b-2 border-[#C8F558]/50' : ''
+                          }`}
                         >
                           <td className="py-3 pl-3.5 pr-1 font-bold">
                             <span
                               className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] ${
                                 index === 0
                                   ? 'bg-[#C8F558] text-[#161616]'
-                                  : isLeaderZone
+                                  : isQuarterFinalZone
                                   ? 'bg-[#C8F558]/25 text-[#C8F558]'
                                   : 'bg-[#242224] text-[#8E8E8E]'
                               }`}
@@ -322,6 +473,11 @@ export const TournamentView: React.FC<{
                 </table>
               </div>
             )}
+            {leagueStandings.length > 8 && (
+              <div className="px-4 py-2 bg-[#141513] border-t border-white/[0.05] text-[10px] font-quicksand text-[#8E8E8E]">
+                Positions 1–8 qualify for Quarter-Finals (Top 8 Bracket)
+              </div>
+            )}
           </div>
 
           {/* League Matchdays & Fixtures Breakdown */}
@@ -374,7 +530,21 @@ export const TournamentView: React.FC<{
         </section>
       )}
 
-      {/* TAB 2: TOP SCORERS, ASSISTS & FAIR PLAY STATS */}
+      {/* TAB 2: TOP 8 KNOCKOUT BRACKET (QF -> SF -> FINAL) */}
+      {activeSubTab === 'knockout' && (
+        <section className="space-y-4">
+          <SectionTabHeader title="Top 8 Knockouts" />
+          <KnockoutBracketSection
+            matches={knockout7AsideMatches}
+            activeStages={active7AsideStages}
+            finalTitle="Championship Final • 15 Min"
+            emptyLabel="Quarter-Finals will populate once the opening phase wraps up or Admin generates the bracket."
+            onSelectMatch={onSelectMatch}
+          />
+        </section>
+      )}
+
+      {/* TAB 3: TOP SCORERS, ASSISTS & FAIR PLAY STATS */}
       {activeSubTab === 'stats' && (
         <section className="space-y-4">
           <SectionTabHeader title="League Leaders" />
@@ -576,118 +746,13 @@ export const TournamentView: React.FC<{
           {/* 1v1 Knockout Bracket Progression */}
           <div className="space-y-4">
             <SectionTabHeader title="1v1 Bracket" />
-            {active1v1Stages.map((stage) => {
-              const stageMatches = knockout1v1Matches
-                .filter((m) => m.stage === stage)
-                .sort((a, b) => (a.bracketOrder || 0) - (b.bracketOrder || 0));
-
-              const stageTitle = {
-                LEAGUE: 'League Stage',
-                GROUP: 'Group Stage',
-                R16: 'Round of 16 (R16)',
-                QF: 'Quarter-Finals (QF)',
-                SF: 'Semi-Finals (SF)',
-                FINAL: '1v1 Grand Final • KSh 5,000 Prize',
-              }[stage];
-
-              return (
-                <div key={stage} className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md bg-[#C8F558] text-[#161616] text-[10px] font-bold uppercase">
-                        {stage}
-                      </span>
-                      <span className="text-xs font-bold text-white">
-                        {stageTitle}
-                      </span>
-                    </div>
-                    <span className="font-quicksand text-[11px] text-[#8E8E8E]">
-                      {stageMatches.length}{' '}
-                      {stageMatches.length === 1 ? 'Tie' : 'Ties'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {stageMatches.map((m) => {
-                      const winnerSide = resolveMatchWinnerSide(m);
-                      return (
-                        <div
-                          key={m.id}
-                          className="rounded-[14px] bg-[#161616] border border-white/[0.06] p-3.5 space-y-2.5 hover:border-white/15 transition-all shadow-card"
-                        >
-                          <div className="flex items-center justify-between text-[10px] text-[#8E8E8E]">
-                            <span className="font-bold text-[#C8F558]">
-                              {m.stage} #{m.bracketOrder}
-                            </span>
-                            <span className="font-bold text-white">
-                              {formatMatchClock(m)}
-                            </span>
-                          </div>
-
-                          <div
-                            className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
-                              winnerSide === 'HOME'
-                                ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                                : 'bg-[#242224]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <TeamCrestBadge
-                                shortCode={m.homeShort}
-                                color={m.homeColor}
-                                size="xs"
-                              />
-                              <span className="text-xs font-bold text-white truncate">
-                                {m.homeName}
-                              </span>
-                            </div>
-                            <span className="text-xs font-bold text-white">
-                              {m.homeScore}
-                            </span>
-                          </div>
-
-                          <div
-                            className={`flex items-center justify-between gap-2 p-2.5 rounded-xl ${
-                              winnerSide === 'AWAY'
-                                ? 'bg-[#C8F558]/15 border border-[#C8F558]/40'
-                                : 'bg-[#242224]'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <TeamCrestBadge
-                                shortCode={m.awayShort}
-                                color={m.awayColor}
-                                size="xs"
-                              />
-                              <span className="text-xs font-bold text-white truncate">
-                                {m.awayName}
-                              </span>
-                            </div>
-                            <span className="text-xs font-bold text-white">
-                              {m.awayScore}
-                            </span>
-                          </div>
-
-                          <div className="pt-1 flex items-center justify-between">
-                            <span className="font-quicksand text-[11px] font-semibold text-[#7C9A32]">
-                              {m.scheduledTime}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => onSelectMatch(m.id)}
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-[#C8F558] hover:underline"
-                            >
-                              <span>Fixture Center</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            <KnockoutBracketSection
+              matches={knockout1v1Matches}
+              activeStages={active1v1Stages}
+              finalTitle="1v1 Grand Final • KSh 5,000 Prize"
+              emptyLabel="No 1v1 knockout ties scheduled yet."
+              onSelectMatch={onSelectMatch}
+            />
           </div>
         </section>
       )}

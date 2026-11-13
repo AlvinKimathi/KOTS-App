@@ -26,7 +26,7 @@ export function getRecommendedGroupCount(teamCount: number): 2 | 3 | 4 {
 /**
  * Parses HH:MM (24h) into minutes since midnight; defaults to 09:00 (540).
  */
-function parseStartTimeMinutes(startTime: string = '09:00'): number {
+export function parseStartTimeMinutes(startTime: string = '09:00'): number {
   const parts = startTime.trim().split(':');
   const h = Number(parts[0]);
   const m = Number(parts[1] ?? 0);
@@ -37,9 +37,25 @@ function parseStartTimeMinutes(startTime: string = '09:00'): number {
 }
 
 /**
+ * Formats minutes since midnight alongside a tournament date label.
+ */
+export function formatMinutesClock(
+  totalMinutes: number,
+  dateLabel: string = '14 Nov'
+): string {
+  const cleanDate = (dateLabel || '14 Nov').trim();
+  const hours24 = Math.floor(totalMinutes / 60) % 24;
+  const mins = totalMinutes % 60;
+  return `${cleanDate} • ${String(hours24).padStart(2, '0')}:${String(mins).padStart(
+    2,
+    '0'
+  )}`;
+}
+
+/**
  * Formats a scheduled kickoff timestamp advancing by slotIntervalMinutes per fixture slot.
  */
-function formatScheduledKickoffTime(
+export function formatScheduledKickoffTime(
   slotIndex: number,
   options: {
     dateLabel?: string;
@@ -47,16 +63,12 @@ function formatScheduledKickoffTime(
     slotIntervalMinutes?: number;
   } = {}
 ): string {
-  const dateLabel = (options.dateLabel || '14 Nov').trim();
   const baseMinutes = parseStartTimeMinutes(options.startTime || '09:00');
   const interval = Math.max(5, Number(options.slotIntervalMinutes) || 25);
-  const totalMinutes = baseMinutes + slotIndex * interval;
-  const hours24 = Math.floor(totalMinutes / 60) % 24;
-  const mins = totalMinutes % 60;
-  return `${dateLabel} • ${String(hours24).padStart(2, '0')}:${String(mins).padStart(
-    2,
-    '0'
-  )}`;
+  return formatMinutesClock(
+    baseMinutes + slotIndex * interval,
+    options.dateLabel || '14 Nov'
+  );
 }
 
 /**

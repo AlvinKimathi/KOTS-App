@@ -244,3 +244,64 @@ describe('Automated League Fixtures Generator (Single Round-Robin)', () => {
     expect(pairKeys.size).toBe(28);
   });
 });
+
+describe('Top-8 Championship Knockout Tiered Timing & Seeding', () => {
+  it('seeds Top 8 as 1v8, 4v5, 2v7, 3v6 and schedules 10m QFs + 15m Semis & Final with 5m cooldowns', () => {
+    const participants = INITIAL_TEAMS_7ASIDE.slice(0, 8).map((t) => ({
+      id: t.id,
+      name: t.name,
+      shortCode: t.shortCode,
+      color: t.badgeColor,
+    }));
+
+    const ko = generateKnockoutBracket({
+      category: '7aside',
+      participants,
+      startStage: 'QF',
+      dateLabel: '14 Nov',
+      startTime: '17:15',
+      qfDurationMinutes: 10,
+      sfFinalDurationMinutes: 15,
+      cooldownMinutes: 5,
+      seedChampionshipOrder: true,
+    });
+
+    expect(ko).toHaveLength(7);
+
+    const qfs = ko.filter((m) => m.stage === 'QF');
+    const sfs = ko.filter((m) => m.stage === 'SF');
+    const finals = ko.filter((m) => m.stage === 'FINAL');
+
+    expect(qfs).toHaveLength(4);
+    expect(sfs).toHaveLength(2);
+    expect(finals).toHaveLength(1);
+
+    // Championship seeding pairings: 1v8, 4v5, 2v7, 3v6
+    expect(qfs[0].homeId).toBe(participants[0].id);
+    expect(qfs[0].awayId).toBe(participants[7].id);
+    expect(qfs[1].homeId).toBe(participants[3].id);
+    expect(qfs[1].awayId).toBe(participants[4].id);
+    expect(qfs[2].homeId).toBe(participants[1].id);
+    expect(qfs[2].awayId).toBe(participants[6].id);
+    expect(qfs[3].homeId).toBe(participants[2].id);
+    expect(qfs[3].awayId).toBe(participants[5].id);
+
+    // Consecutive timings with 5m cooldowns
+    expect(qfs.map((m) => m.scheduledTime)).toEqual([
+      '14 Nov • 17:15',
+      '14 Nov • 17:30',
+      '14 Nov • 17:45',
+      '14 Nov • 18:00',
+    ]);
+    expect(qfs.every((m) => m.durationMinutes === 10)).toBe(true);
+
+    expect(sfs.map((m) => m.scheduledTime)).toEqual([
+      '14 Nov • 18:15',
+      '14 Nov • 18:35',
+    ]);
+    expect(sfs.every((m) => m.durationMinutes === 15)).toBe(true);
+
+    expect(finals[0].scheduledTime).toBe('14 Nov • 18:55');
+    expect(finals[0].durationMinutes).toBe(15);
+  });
+});
