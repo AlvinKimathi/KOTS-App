@@ -1134,7 +1134,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       teams: data.teams7Aside,
       venue: options.venue || 'BALLMANIA RUNDA',
       dateLabel: options.dateLabel || '14 Nov',
-      startTime: options.startTime || '09:00',
+      startTime: options.startTime || '10:00',
       durationMinutes: options.durationMinutes || 20,
       slotIntervalMinutes: options.slotIntervalMinutes || 25,
       shuffleTeams: options.shuffleTeams ?? true,

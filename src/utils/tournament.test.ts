@@ -259,7 +259,7 @@ describe('Top-8 Championship Knockout Tiered Timing & Seeding', () => {
       participants,
       startStage: 'QF',
       dateLabel: '14 Nov',
-      startTime: '17:15',
+      startTime: '18:15',
       qfDurationMinutes: 10,
       sfFinalDurationMinutes: 15,
       cooldownMinutes: 5,
@@ -286,22 +286,22 @@ describe('Top-8 Championship Knockout Tiered Timing & Seeding', () => {
     expect(qfs[3].homeId).toBe(participants[2].id);
     expect(qfs[3].awayId).toBe(participants[5].id);
 
-    // Consecutive timings with 5m cooldowns
+    // Consecutive timings with 5m cooldowns (10:00 opening start -> 18:15 KO start)
     expect(qfs.map((m) => m.scheduledTime)).toEqual([
-      '14 Nov • 17:15',
-      '14 Nov • 17:30',
-      '14 Nov • 17:45',
-      '14 Nov • 18:00',
+      '14 Nov • 18:15',
+      '14 Nov • 18:30',
+      '14 Nov • 18:45',
+      '14 Nov • 19:00',
     ]);
     expect(qfs.every((m) => m.durationMinutes === 10)).toBe(true);
 
     expect(sfs.map((m) => m.scheduledTime)).toEqual([
-      '14 Nov • 18:15',
-      '14 Nov • 18:35',
+      '14 Nov • 19:15',
+      '14 Nov • 19:35',
     ]);
     expect(sfs.every((m) => m.durationMinutes === 15)).toBe(true);
 
-    expect(finals[0].scheduledTime).toBe('14 Nov • 18:55');
+    expect(finals[0].scheduledTime).toBe('14 Nov • 19:55');
     expect(finals[0].durationMinutes).toBe(15);
   });
 });

@@ -147,14 +147,14 @@ export const AdminConsoleView: React.FC<{
   const [drawCategory, setDrawCategory] =
     useState<TournamentCategory>('7aside');
   const [leagueDateLabel, setLeagueDateLabel] = useState('14 Nov');
-  const [leagueStartTime, setLeagueStartTime] = useState('09:00');
+  const [leagueStartTime, setLeagueStartTime] = useState('10:00');
   const [leagueDurationMinutes, setLeagueDurationMinutes] = useState<number>(10);
   const [leagueSlotIntervalMinutes, setLeagueSlotIntervalMinutes] =
     useState<number>(15);
   const [leagueVenue, setLeagueVenue] = useState('BALLMANIA RUNDA');
 
   // Top 8 7-Aside Knockout config state
-  const [koStartTime, setKoStartTime] = useState('17:15');
+  const [koStartTime, setKoStartTime] = useState('18:15');
   const [koQfDuration, setKoQfDuration] = useState<number>(10);
   const [koSfFinalDuration, setKoSfFinalDuration] = useState<number>(15);
   const [koCooldown, setKoCooldown] = useState<number>(5);
@@ -456,7 +456,7 @@ export const AdminConsoleView: React.FC<{
                           type="text"
                           value={editScheduledTime}
                           onChange={(e) => setEditScheduledTime(e.target.value)}
-                          placeholder="14 Nov • 09:00"
+                          placeholder="14 Nov • 10:00"
                           className="w-full rounded-lg bg-[#141513] border border-white/10 px-2.5 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
                         />
                       </div>
@@ -585,7 +585,7 @@ export const AdminConsoleView: React.FC<{
                       type="text"
                       value={leagueStartTime}
                       onChange={(e) => setLeagueStartTime(e.target.value)}
-                      placeholder="09:00"
+                      placeholder="10:00"
                       className="w-full rounded-xl bg-[#141513] border border-white/10 px-3 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
                     />
                   </div>

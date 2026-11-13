@@ -366,7 +366,7 @@ export const MatchDetailView: React.FC<{
                     type="text"
                     value={editScheduledTime}
                     onChange={(e) => setEditScheduledTime(e.target.value)}
-                    placeholder="14 Nov • 09:00"
+                    placeholder="14 Nov • 10:00"
                     className="w-full rounded-lg bg-[#161616] border border-white/10 px-2.5 py-1.5 text-xs text-white focus:border-[#C8F558] focus:outline-none"
                   />
                 </div>

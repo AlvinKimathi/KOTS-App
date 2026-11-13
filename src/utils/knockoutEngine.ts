@@ -81,7 +81,7 @@ export function generateKnockoutBracket(params: {
     startStage = 'R16',
     venue = 'BALLMANIA RUNDA',
     dateLabel = '14 Nov',
-    startTime = category === '7aside' ? '17:15' : '13:00',
+    startTime = category === '7aside' ? '18:15' : '13:00',
     durationMinutes,
     qfDurationMinutes = durationMinutes ?? (category === '7aside' ? 10 : 4),
     sfFinalDurationMinutes = durationMinutes ?? (category === '7aside' ? 15 : 4),

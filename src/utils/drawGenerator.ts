@@ -24,16 +24,16 @@ export function getRecommendedGroupCount(teamCount: number): 2 | 3 | 4 {
 }
 
 /**
- * Parses HH:MM (24h) into minutes since midnight; defaults to 09:00 (540).
+ * Parses HH:MM (24h) into minutes since midnight; defaults to 10:00 (600).
  */
-export function parseStartTimeMinutes(startTime: string = '09:00'): number {
+export function parseStartTimeMinutes(startTime: string = '10:00'): number {
   const parts = startTime.trim().split(':');
   const h = Number(parts[0]);
   const m = Number(parts[1] ?? 0);
   if (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h < 24 && m >= 0 && m < 60) {
     return h * 60 + m;
   }
-  return 9 * 60;
+  return 10 * 60;
 }
 
 /**
@@ -63,7 +63,7 @@ export function formatScheduledKickoffTime(
     slotIntervalMinutes?: number;
   } = {}
 ): string {
-  const baseMinutes = parseStartTimeMinutes(options.startTime || '09:00');
+  const baseMinutes = parseStartTimeMinutes(options.startTime || '10:00');
   const interval = Math.max(5, Number(options.slotIntervalMinutes) || 25);
   return formatMinutesClock(
     baseMinutes + slotIndex * interval,
@@ -72,12 +72,12 @@ export function formatScheduledKickoffTime(
 }
 
 /**
- * Formats a scheduled kickoff timestamp starting at 09:00 on 14 Nov and advancing by 25 minutes per slot.
+ * Formats a scheduled kickoff timestamp starting at 10:00 on 14 Nov and advancing by 25 minutes per slot.
  */
 function formatGroupKickoffTime(slotIndex: number): string {
   return formatScheduledKickoffTime(slotIndex, {
     dateLabel: '14 Nov',
-    startTime: '09:00',
+    startTime: '10:00',
     slotIntervalMinutes: 25,
   });
 }
@@ -276,7 +276,7 @@ export function generateLeagueFixturesForTeams(
     teams,
     venue = 'BALLMANIA RUNDA',
     dateLabel = '14 Nov',
-    startTime = '09:00',
+    startTime = '10:00',
     durationMinutes = 20,
     slotIntervalMinutes = 25,
     shuffleTeams = true,
