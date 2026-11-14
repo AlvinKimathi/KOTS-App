@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -96,6 +96,110 @@ const CrestColorPicker: React.FC<{
   );
 };
 
+/**
+ * Locally buffered inline input so typing never lags or loses characters when
+ * global tournament state / cloud sync updates happen in the background.
+ */
+const BufferedInlineInput: React.FC<{
+  value: string;
+  onCommit: (nextValue: string) => void;
+  placeholder?: string;
+  type?: 'text' | 'tel';
+  uppercase?: boolean;
+  fallbackOnEmptyBlur?: string;
+  className?: string;
+}> = ({
+  value,
+  onCommit,
+  placeholder,
+  type = 'text',
+  uppercase = false,
+  fallbackOnEmptyBlur,
+  className,
+}) => {
+  const [draft, setDraft] = useState(value);
+  const isFocusedRef = useRef(false);
+  const draftRef = useRef(value);
+  const lastCommittedRef = useRef(value);
+  const onCommitRef = useRef(onCommit);
+  const fallbackRef = useRef(fallbackOnEmptyBlur);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  onCommitRef.current = onCommit;
+  fallbackRef.current = fallbackOnEmptyBlur;
+
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      setDraft(value);
+      draftRef.current = value;
+      lastCommittedRef.current = value;
+    }
+  }, [value]);
+
+  const flush = (candidate: string) => {
+    if (timerRef.current !== null) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (candidate !== lastCommittedRef.current) {
+      lastCommittedRef.current = candidate;
+      onCommitRef.current(candidate);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      const pending = draftRef.current;
+      const finalVal =
+        fallbackRef.current && !pending.trim() ? fallbackRef.current : pending;
+      if (finalVal !== lastCommittedRef.current) {
+        lastCommittedRef.current = finalVal;
+        onCommitRef.current(finalVal);
+      }
+    };
+  }, []);
+
+  return (
+    <input
+      type={type}
+      value={draft}
+      placeholder={placeholder}
+      onFocus={(e) => {
+        isFocusedRef.current = true;
+        if (/^Player\s*\d*$/i.test(e.currentTarget.value.trim())) {
+          e.currentTarget.select();
+        }
+      }}
+      onChange={(e) => {
+        const nextVal = uppercase ? e.target.value.toUpperCase() : e.target.value;
+        setDraft(nextVal);
+        draftRef.current = nextVal;
+        if (timerRef.current !== null) {
+          clearTimeout(timerRef.current);
+        }
+        timerRef.current = setTimeout(() => {
+          flush(nextVal);
+        }, 250);
+      }}
+      onBlur={() => {
+        isFocusedRef.current = false;
+        let finalVal = draftRef.current;
+        if (fallbackRef.current && !finalVal.trim()) {
+          finalVal = fallbackRef.current;
+          setDraft(finalVal);
+          draftRef.current = finalVal;
+        }
+        flush(finalVal);
+      }}
+      className={className}
+    />
+  );
+};
+
 export const RegistrationView: React.FC<{
   onOpenSearch: () => void;
   onNavigateTab: (tab: AppNavTab) => void;
@@ -106,6 +210,7 @@ export const RegistrationView: React.FC<{
     players1v1,
     registerTeam7Aside,
     updateTeam7Aside,
+    updateTeamPlayerName,
     deleteTeam7Aside,
     registerPlayer1v1,
     updatePlayer1v1Status,
@@ -835,13 +940,13 @@ export const RegistrationView: React.FC<{
                             <div className="flex flex-wrap items-center gap-3">
                               <div className="flex items-center gap-1.5">
                                 <span>M-Pesa Ref:</span>
-                                <input
+                                <BufferedInlineInput
                                   type="text"
                                   value={team.mpesaReference || ''}
-                                  onChange={(e) =>
+                                  uppercase
+                                  onCommit={(val) =>
                                     updateTeam7Aside(team.id, {
-                                      mpesaReference:
-                                        e.target.value.toUpperCase(),
+                                      mpesaReference: val,
                                     })
                                   }
                                   placeholder="Enter M-Pesa Ref"
@@ -850,12 +955,12 @@ export const RegistrationView: React.FC<{
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <span>Captain Phone:</span>
-                                <input
+                                <BufferedInlineInput
                                   type="tel"
                                   value={team.captainPhone || ''}
-                                  onChange={(e) =>
+                                  onCommit={(val) =>
                                     updateTeam7Aside(team.id, {
-                                      captainPhone: e.target.value,
+                                      captainPhone: val,
                                     })
                                   }
                                   placeholder="Add phone later"
@@ -952,20 +1057,14 @@ export const RegistrationView: React.FC<{
                               #{idx + 1}
                             </span>
                             {isAdmin ? (
-                              <input
+                              <BufferedInlineInput
                                 type="text"
                                 value={p.name}
-                                onChange={(e) => {
-                                  const updatedPlayers = team.players.map(
-                                    (pl, pIdx) =>
-                                      pIdx === idx
-                                        ? { ...pl, name: e.target.value }
-                                        : pl
-                                  );
-                                  updateTeam7Aside(team.id, {
-                                    players: updatedPlayers,
-                                  });
-                                }}
+                                placeholder={`Player ${idx + 1}`}
+                                fallbackOnEmptyBlur={`Player ${idx + 1}`}
+                                onCommit={(val) =>
+                                  updateTeamPlayerName(team.id, p.id, val)
+                                }
                                 className="w-full bg-transparent text-white text-xs font-normal focus:outline-none"
                               />
                             ) : (

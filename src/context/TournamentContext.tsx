@@ -198,6 +198,11 @@ interface TournamentContextValue {
       >
     >
   ) => void;
+  updateTeamPlayerName: (
+    teamId: string,
+    playerId: string,
+    name: string
+  ) => void;
   deleteTeam7Aside: (teamId: string) => void;
   registerPlayer1v1: (input: {
     name: string;
@@ -326,7 +331,13 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     StoredUserAccount[]
   >(loadSpectatorAccounts);
   const [clockTick, setClockTick] = useState<number>(() => Date.now());
+  const dataRef = useRef<PersistedTournamentData>(data);
   const lastLocalMutationAtRef = useRef<number>(0);
+  const pushInFlightRef = useRef<boolean>(false);
+  const pendingCloudSnapshotRef = useRef<PersistedTournamentData | null>(null);
+  const pushDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   // Apply html.dark / html.light class and sync mobile browser theme-color whenever theme changes
   useEffect(() => {
@@ -370,24 +381,86 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const isLocalSyncBusy = () =>
+    pushInFlightRef.current ||
+    pendingCloudSnapshotRef.current !== null ||
+    pushDebounceTimerRef.current !== null ||
+    Date.now() - lastLocalMutationAtRef.current < 4500;
+
   const pushStateToSupabase = async (snapshot: PersistedTournamentData) => {
     if (!supabase) return;
+
+    // Serialize cloud writes so rapid edits never finish out of order in Postgres
+    pendingCloudSnapshotRef.current = snapshot;
+    if (pushInFlightRef.current) return;
+
+    pushInFlightRef.current = true;
+    setSyncStatus('SYNCING');
+    let hadError = false;
+
     try {
-      setSyncStatus('SYNCING');
-      const { error } = await supabase.from('tournament_state').upsert(
-        {
-          id: TOURNAMENT_ROW_ID,
-          teams_7aside: snapshot.teams7Aside,
-          players_1v1: snapshot.players1v1,
-          matches: snapshot.matches,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      );
-      setSyncStatus(error ? 'LOCAL_ONLY' : 'LIVE_CLOUD');
+      while (pendingCloudSnapshotRef.current) {
+        const nextSnapshot = pendingCloudSnapshotRef.current;
+        pendingCloudSnapshotRef.current = null;
+        lastLocalMutationAtRef.current = Date.now();
+
+        const { error } = await supabase.from('tournament_state').upsert(
+          {
+            id: TOURNAMENT_ROW_ID,
+            teams_7aside: nextSnapshot.teams7Aside,
+            players_1v1: nextSnapshot.players1v1,
+            matches: nextSnapshot.matches,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+
+        // Refresh window right after response so our own Realtime echo is ignored
+        lastLocalMutationAtRef.current = Date.now();
+        if (error) {
+          hadError = true;
+        }
+      }
+      setSyncStatus(hadError ? 'LOCAL_ONLY' : 'LIVE_CLOUD');
     } catch {
       setSyncStatus('LOCAL_ONLY');
+    } finally {
+      pushInFlightRef.current = false;
     }
+  };
+
+  const scheduleCloudPush = (
+    snapshot: PersistedTournamentData,
+    debounceMs: number = 0
+  ) => {
+    if (pushDebounceTimerRef.current !== null) {
+      clearTimeout(pushDebounceTimerRef.current);
+      pushDebounceTimerRef.current = null;
+    }
+
+    if (!supabase && import.meta.env.DEV) {
+      void fetch('/api/dev-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: snapshot }),
+      }).catch(() => {});
+      return;
+    }
+
+    if (!supabase) return;
+
+    if (debounceMs <= 0) {
+      void pushStateToSupabase(snapshot);
+      return;
+    }
+
+    pendingCloudSnapshotRef.current = snapshot;
+    pushDebounceTimerRef.current = setTimeout(() => {
+      pushDebounceTimerRef.current = null;
+      const latest = pendingCloudSnapshotRef.current || snapshot;
+      pendingCloudSnapshotRef.current = null;
+      void pushStateToSupabase(latest);
+    }, debounceMs);
   };
 
   const applyRemoteSnapshot = (remote: {
@@ -398,53 +471,48 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!Array.isArray(remote.teams_7aside) || !Array.isArray(remote.matches)) {
       return;
     }
-    setData((prev) => {
-      const next: PersistedTournamentData = {
-        teams7Aside: remote.teams_7aside!,
-        players1v1: Array.isArray(remote.players_1v1)
-          ? remote.players_1v1
-          : prev.players1v1,
-        matches: remote.matches!,
-        pastSearches: prev.pastSearches,
-      };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // ignore storage error
-      }
-      return next;
-    });
+    const next: PersistedTournamentData = {
+      teams7Aside: remote.teams_7aside,
+      players1v1: Array.isArray(remote.players_1v1)
+        ? remote.players_1v1
+        : dataRef.current.players1v1,
+      matches: remote.matches,
+      pastSearches: dataRef.current.pastSearches,
+    };
+    dataRef.current = next;
+    setData(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // ignore storage error
+    }
     setSyncStatus('LIVE_CLOUD');
   };
 
   const commitData = (
     updater: (prev: PersistedTournamentData) => PersistedTournamentData,
-    syncCloud: boolean = true
+    syncCloud: boolean = true,
+    options?: { debounceMs?: number }
   ) => {
     lastLocalMutationAtRef.current = Date.now();
-    setData((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        if (typeof BroadcastChannel !== 'undefined') {
-          const bc = new BroadcastChannel(CHANNEL_NAME);
-          bc.postMessage(next);
-          bc.close();
-        }
-      } catch {
-        // ignore storage errors
+    const next = updater(dataRef.current);
+    dataRef.current = next;
+    setData(next);
+
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel(CHANNEL_NAME);
+        bc.postMessage(next);
+        bc.close();
       }
-      if (syncCloud && supabase) {
-        void pushStateToSupabase(next);
-      } else if (syncCloud && import.meta.env.DEV) {
-        void fetch('/api/dev-sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ state: next }),
-        }).catch(() => {});
-      }
-      return next;
-    });
+    } catch {
+      // ignore storage errors
+    }
+
+    if (syncCloud) {
+      scheduleCloudPush(next, options?.debounceMs ?? 0);
+    }
   };
 
   // Supabase Realtime subscription + initial fetch + 12s poll + wake-on-visibility for 300-1,000 users
@@ -455,7 +523,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const fetchLatestFromCloud = async () => {
       if (!supabase) return;
-      if (Date.now() - lastLocalMutationAtRef.current < 3500) {
+      if (isLocalSyncBusy()) {
         return;
       }
       try {
@@ -466,7 +534,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
           .maybeSingle();
 
         if (!isMounted) return;
-        if (Date.now() - lastLocalMutationAtRef.current < 3500) {
+        if (isLocalSyncBusy()) {
           return;
         }
 
@@ -522,6 +590,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
           filter: `id=eq.${TOURNAMENT_ROW_ID}`,
         },
         (payload) => {
+          // Never let our own in-flight / recent Realtime echo overwrite active typing
+          if (isLocalSyncBusy()) return;
           if (payload.new && typeof payload.new === 'object') {
             applyRemoteSnapshot(
               payload.new as {
@@ -546,14 +616,27 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }, 12000);
 
+    const flushPendingBeforeBackground = () => {
+      if (pushDebounceTimerRef.current !== null) {
+        clearTimeout(pushDebounceTimerRef.current);
+        pushDebounceTimerRef.current = null;
+        const latest = pendingCloudSnapshotRef.current || dataRef.current;
+        pendingCloudSnapshotRef.current = null;
+        void pushStateToSupabase(latest);
+      }
+    };
+
     const handleVisibilityOrOnline = () => {
       if (document.visibilityState === 'visible') {
         void fetchLatestFromCloud();
+      } else if (document.visibilityState === 'hidden') {
+        flushPendingBeforeBackground();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityOrOnline);
     window.addEventListener('online', handleVisibilityOrOnline);
+    window.addEventListener('pagehide', flushPendingBeforeBackground);
 
     return () => {
       isMounted = false;
@@ -563,6 +646,8 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
         handleVisibilityOrOnline
       );
       window.removeEventListener('online', handleVisibilityOrOnline);
+      window.removeEventListener('pagehide', flushPendingBeforeBackground);
+      flushPendingBeforeBackground();
       void supabase?.removeChannel(channel);
     };
   }, []);
@@ -573,7 +658,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     const bc = new BroadcastChannel(CHANNEL_NAME);
     bc.onmessage = (ev) => {
       if (ev.data && Array.isArray(ev.data.matches)) {
-        setData(ev.data as PersistedTournamentData);
+        const incoming = ev.data as PersistedTournamentData;
+        dataRef.current = incoming;
+        setData(incoming);
       }
     };
     return () => bc.close();
@@ -598,7 +685,9 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
           Array.isArray(payload.state.matches)
         ) {
           lastSeenUpdatedAt = payload.updatedAt;
-          setData(payload.state as PersistedTournamentData);
+          const incoming = payload.state as PersistedTournamentData;
+          dataRef.current = incoming;
+          setData(incoming);
           try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.state));
           } catch {
@@ -1475,21 +1564,52 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
     >
   ) => {
     if (session.role !== 'ADMIN') return;
-    commitData((prev) => ({
-      ...prev,
-      teams7Aside: prev.teams7Aside.map((t) =>
-        t.id === teamId ? { ...t, ...patch } : t
-      ),
-      matches: patch.badgeColor
-        ? prev.matches.map((m) =>
-            m.homeId === teamId
-              ? { ...m, homeColor: patch.badgeColor! }
-              : m.awayId === teamId
-              ? { ...m, awayColor: patch.badgeColor! }
-              : m
-          )
-        : prev.matches,
-    }));
+    const isTextOnlyEdit =
+      patch.badgeColor === undefined && patch.registrationStatus === undefined;
+    commitData(
+      (prev) => ({
+        ...prev,
+        teams7Aside: prev.teams7Aside.map((t) =>
+          t.id === teamId ? { ...t, ...patch } : t
+        ),
+        matches: patch.badgeColor
+          ? prev.matches.map((m) =>
+              m.homeId === teamId
+                ? { ...m, homeColor: patch.badgeColor! }
+                : m.awayId === teamId
+                ? { ...m, awayColor: patch.badgeColor! }
+                : m
+            )
+          : prev.matches,
+      }),
+      true,
+      isTextOnlyEdit ? { debounceMs: 450 } : undefined
+    );
+  };
+
+  const updateTeamPlayerName = (
+    teamId: string,
+    playerId: string,
+    name: string
+  ) => {
+    if (session.role !== 'ADMIN') return;
+    commitData(
+      (prev) => ({
+        ...prev,
+        teams7Aside: prev.teams7Aside.map((t) =>
+          t.id === teamId
+            ? {
+                ...t,
+                players: t.players.map((pl) =>
+                  pl.id === playerId ? { ...pl, name } : pl
+                ),
+              }
+            : t
+        ),
+      }),
+      true,
+      { debounceMs: 450 }
+    );
   };
 
   const deleteTeam7Aside = (teamId: string) => {
@@ -1584,6 +1704,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       matches: normalizeLiveMatchClocks(INITIAL_MATCHES),
       pastSearches: ['Runda Royals', 'League', '1v1', 'Oyster Bay'],
     };
+    dataRef.current = freshData;
     setData(freshData);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(freshData));
@@ -1591,6 +1712,11 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       // ignore storage error
     }
     if (supabase) {
+      pendingCloudSnapshotRef.current = null;
+      if (pushDebounceTimerRef.current !== null) {
+        clearTimeout(pushDebounceTimerRef.current);
+        pushDebounceTimerRef.current = null;
+      }
       void pushStateToSupabase(freshData);
     }
   };
@@ -1641,6 +1767,7 @@ export const TournamentProvider: React.FC<{ children: React.ReactNode }> = ({
       assignSlotParticipant,
       registerTeam7Aside,
       updateTeam7Aside,
+      updateTeamPlayerName,
       deleteTeam7Aside,
       registerPlayer1v1,
       updatePlayer1v1Status,
